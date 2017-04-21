@@ -1,4 +1,7 @@
-*.Rproj
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
 features/ExistingVegNorSierra2000_2014_v1.gdb
 features/ExistingVegSouthSierra2000_2014_v1.gdb
 
