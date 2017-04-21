@@ -10,40 +10,44 @@ nsn <- st_read(dsn = "features/ExistingVegNorSierra2000_2014_v1.gdb/", stringsAs
 ssn <- st_read(dsn = "features/ExistingVegSouthSierra2000_2008_v1.gdb/", stringsAsFactors = FALSE)
 
 # Subsets by Wildlife Habitat Relationship lifeform (https://www.fs.fed.us/r5/rsl/projects/classification/cv-cwhr-xwalk.html)
+# nsn_con_forest <- subset(nsn,
+#                   subset =
+#                     nsn$WHRLIFEFORM == "WHR_CON" | # Conifer forest/woodland
+#                     nsn$WHRLIFEFORM == "WHR_MIX")  # Mixed conifer and hardwood forest/woodland
+# 
+# ssn_con_forest <- subset(ssn,
+#                   subset =
+#                     ssn$WHRLIFEFORM == "WHR_CON" | # Conifer forest/woodland
+#                     ssn$WHRLIFEFORM == "WHR_MIX")  # Mixed conifer and hardwood forest/woodland
+# 
+# filename <- "features/sierra-nevada-250m-calveg-conifer-forested-pixels-by-whr-lifeform.tif"
+
+# Subsets by Wildlife Habitat Relationship type (http://frap.fire.ca.gov/projects/frap_veg/classification)
 nsn_con_forest <- subset(nsn,
                   subset =
-                    nsn$WHRLIFEFORM == "WHR_CON" | # Conifer forest/woodland
-                    nsn$WHRLIFEFORM == "WHR_MIX")  # Mixed conifer and hardwood forest/woodland
+                    nsn$WHRTYPE == "SMC" |  # Sierra mixed conifer
+                    nsn$WHRTYPE == "MCN" |  # Mixed conifer
+                    nsn$WHRTYPE == "MHC" |  # Mixed hardwood-conifer
+                    nsn$WHRTYPE == "SCN" |  # Subalpine conifer
+                    nsn$WHRTYPE == "JPN" |  # Jeffrey pine
+                    nsn$WHRTYPE == "PPN" |  # Ponderosa pine
+                    nsn$WHRTYPE == "WFR" |  # White fir
+                    nsn$WHRTYPE == "RFR" |  # Red fir
+                    nsn$WHRTYPE == "DFR")   # Douglas fir
 
 ssn_con_forest <- subset(ssn,
                   subset =
-                    ssn$WHRLIFEFORM == "WHR_CON" | # Conifer forest/woodland
-                    ssn$WHRLIFEFORM == "WHR_MIX")  # Mixed conifer and hardwood forest/woodland
+                    ssn$WHRTYPE == "SMC" |  # Sierra mixed conifer
+                    ssn$WHRTYPE == "MCN" |  # Mixed conifer
+                    ssn$WHRTYPE == "MHC" |  # Mixed hardwood-conifer
+                    ssn$WHRTYPE == "SCN" |  # Subalpine conifer
+                    ssn$WHRTYPE == "JPN" |  # Jeffrey pine
+                    ssn$WHRTYPE == "PPN" |  # Ponderosa pine
+                    ssn$WHRTYPE == "WFR" |  # White fir
+                    ssn$WHRTYPE == "RFR" |  # Red fir
+                    ssn$WHRTYPE == "DFR")   # Douglas fir
 
-# Subsets by Wildlife Habitat Relationship type (http://frap.fire.ca.gov/projects/frap_veg/classification)
-# nsn_con_forest <- subset(nsn, 
-#                   subset = 
-#                     nsn$WHRTYPE == "SMC" |  # Sierra mixed conifer
-#                     nsn$WHRTYPE == "MCN" |  # Mixed conifer
-#                     nsn$WHRTYPE == "MHC" |  # Mixed hardwood-conifer
-#                     nsn$WHRTYPE == "SCN" |  # Subalpine conifer
-#                     nsn$WHRTYPE == "JPN" |  # Jeffrey pine
-#                     nsn$WHRTYPE == "PPN" |  # Ponderosa pine
-#                     nsn$WHRTYPE == "WFR" |  # White fir
-#                     nsn$WHRTYPE == "RFR" |  # Red fir
-#                     nsn$WHRTYPE == "DFR")   # Douglas fir
-# 
-# ssn_con_forest <- subset(ssn, 
-#                   subset = 
-#                     ssn$WHRTYPE == "SMC" |  # Sierra mixed conifer
-#                     ssn$WHRTYPE == "MCN" |  # Mixed conifer
-#                     ssn$WHRTYPE == "MHC" |  # Mixed hardwood-conifer
-#                     ssn$WHRTYPE == "SCN" |  # Subalpine conifer
-#                     ssn$WHRTYPE == "JPN" |  # Jeffrey pine
-#                     ssn$WHRTYPE == "PPN" |  # Ponderosa pine
-#                     ssn$WHRTYPE == "WFR" |  # White fir
-#                     ssn$WHRTYPE == "RFR" |  # Red fir
-#                     ssn$WHRTYPE == "DFR")   # Douglas fir
+filename <- "features/sierra-nevada-250m-calveg-conifer-forested-pixels-by-whr-type.tif"
 
 sn <- shapefile("features/SierraEcoregion_TNC/SierraEcoregion_TNC.shp")
 raster_template <- raster("features/sierra-nevada-250m-evi-template.tif")
@@ -66,7 +70,7 @@ sn_con_forest_r[sn_con_forest_r == 1] <- 0
 plot(sn_con_forest_r)
 plot(sn, add = TRUE)
 
-writeRaster(sn_con_forest_r, filename="features/sierra-nevada-250m-calveg-conifer-forested-pixels-by-lifeform.tif", format="GTiff", overwrite=TRUE)
+writeRaster(sn_con_forest_r, filename = filename, format="GTiff", overwrite=TRUE)
 
-test <- raster("features/sierra-nevada-250m-calveg-conifer-forested-pixels-by-lifeform.tif")
+test <- raster(filename)
 plot(test)
