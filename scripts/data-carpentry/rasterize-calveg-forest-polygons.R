@@ -23,6 +23,7 @@ ssn <- st_read(dsn = "features/ExistingVegSouthSierra2000_2008_v1.gdb/", strings
 # filename <- "features/sierra-nevada-250m-calveg-conifer-forested-pixels-by-whr-lifeform.tif"
 
 # Subsets by Wildlife Habitat Relationship type (http://frap.fire.ca.gov/projects/frap_veg/classification)
+# The end product will be a raster with each forested cell's center having at least some overlap with a conifer forest polygon
 nsn_con_forest <- subset(nsn,
                   subset =
                     nsn$WHRTYPE == "SMC" |  # Sierra mixed conifer
@@ -47,30 +48,34 @@ ssn_con_forest <- subset(ssn,
                     ssn$WHRTYPE == "RFR" |  # Red fir
                     ssn$WHRTYPE == "DFR")   # Douglas fir
 
-filename <- "features/sierra-nevada-250m-calveg-conifer-forested-pixels-by-whr-type.tif"
+filename <- "features/sierra-nevada-250m-calveg-conifer-forested-pixels-by-whr-type-no-mask.tif"
 
 sn <- shapefile("features/SierraEcoregion_TNC/SierraEcoregion_TNC.shp")
 raster_template <- raster("features/sierra-nevada-250m-evi-template.tif")
 
-raster_template[] <- rep(0, times = ncell(raster_template))
-raster_template <- mask(raster_template, sn)
-
 nsn_con_forest <- st_transform(nsn_con_forest, crs = proj4string(raster_template))
 ssn_con_forest <- st_transform(ssn_con_forest, crs = proj4string(raster_template))
 
+# All pixels whose centers overlap a forested polygon will get a value of 1
 nsn_con_forest_r <- fasterize(sf = nsn_con_forest,
                                raster = raster_template)
 ssn_con_forest_r <- fasterize(sf = ssn_con_forest,
                                raster = raster_template)
 
+# Combines the North Sierra Nevada and the South Sierra Nevada
 sn_con_forest_r <- merge(nsn_con_forest_r, ssn_con_forest_r)
+
+# There are some pixels from the South Sierra Nevada region that are not in the
+# SierraEcoregion_TNC polygon, so we can mask those out.
 sn_con_forest_r <- mask(sn_con_forest_r, sn)
-sn_con_forest_r[sn_con_forest_r == 1] <- 0
+
+# We want the "good" (i.e. forested) pixels to have a value of 1
+# and "bad" (i.e. non-forested) pixels to have a value of 0. We can't mask out
+# non-forested pixels because Earth Engine asset uploads don't seem to like
+# that approach.
+sn_con_forest_r[is.na(sn_con_forest_r)] <- 0 # Turn all masked pixels to 0
 
 plot(sn_con_forest_r)
 plot(sn, add = TRUE)
 
 writeRaster(sn_con_forest_r, filename = filename, format="GTiff", overwrite=TRUE)
-
-test <- raster(filename)
-plot(test)
