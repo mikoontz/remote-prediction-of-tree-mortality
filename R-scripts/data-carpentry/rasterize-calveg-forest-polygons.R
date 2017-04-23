@@ -6,8 +6,8 @@ library(devtools)
 # devtools::install_github("ecohealthalliance/fasterize")
 library(fasterize)
 
-nsn <- st_read(dsn = "features/ExistingVegNorSierra2000_2014_v1.gdb/", stringsAsFactors = FALSE)
-ssn <- st_read(dsn = "features/ExistingVegSouthSierra2000_2008_v1.gdb/", stringsAsFactors = FALSE)
+nsn <- st_read(dsn = "features/ExistingVegNorSierra2000_2014_v1.gdb", stringsAsFactors = FALSE) # From DY: I had to remove the slash after the filename for this to work
+ssn <- st_read(dsn = "features/ExistingVegSouthSierra2000_2008_v1.gdb", stringsAsFactors = FALSE) # From DY: I had to remove the slash after the filename for this to work
 
 # Subsets by Wildlife Habitat Relationship lifeform (https://www.fs.fed.us/r5/rsl/projects/classification/cv-cwhr-xwalk.html)
 # nsn_con_forest <- subset(nsn,
@@ -24,29 +24,19 @@ ssn <- st_read(dsn = "features/ExistingVegSouthSierra2000_2008_v1.gdb/", strings
 
 # Subsets by Wildlife Habitat Relationship type (http://frap.fire.ca.gov/projects/frap_veg/classification)
 # The end product will be a raster with each forested cell's center having at least some overlap with a conifer forest polygon
-nsn_con_forest <- subset(nsn,
-                  subset =
-                    nsn$WHRTYPE == "SMC" |  # Sierra mixed conifer
-                    nsn$WHRTYPE == "MCN" |  # Mixed conifer
-                    nsn$WHRTYPE == "MHC" |  # Mixed hardwood-conifer
-                    nsn$WHRTYPE == "SCN" |  # Subalpine conifer
-                    nsn$WHRTYPE == "JPN" |  # Jeffrey pine
-                    nsn$WHRTYPE == "PPN" |  # Ponderosa pine
-                    nsn$WHRTYPE == "WFR" |  # White fir
-                    nsn$WHRTYPE == "RFR" |  # Red fir
-                    nsn$WHRTYPE == "DFR")   # Douglas fir
 
-ssn_con_forest <- subset(ssn,
-                  subset =
-                    ssn$WHRTYPE == "SMC" |  # Sierra mixed conifer
-                    ssn$WHRTYPE == "MCN" |  # Mixed conifer
-                    ssn$WHRTYPE == "MHC" |  # Mixed hardwood-conifer
-                    ssn$WHRTYPE == "SCN" |  # Subalpine conifer
-                    ssn$WHRTYPE == "JPN" |  # Jeffrey pine
-                    ssn$WHRTYPE == "PPN" |  # Ponderosa pine
-                    ssn$WHRTYPE == "WFR" |  # White fir
-                    ssn$WHRTYPE == "RFR" |  # Red fir
-                    ssn$WHRTYPE == "DFR")   # Douglas fir
+forest.whr.types <- c("SMC",  # Sierra mixed conifer
+                      "MCN",  # Mixed conifer
+                      "MHC",  # Mixed hardwood-conifer
+                      "SCN",  # Subalpine conifer
+                      "JPN",  # Jeffrey pine
+                      "PPN",  # Ponderosa pine
+                      "WFR",  # White fir
+                      "RFR",  # Red fir
+                      "DFR")  # Douglas-fir
+
+nsn_con_forest <- subset(nsn, subset = nsn$WHRTYPE %in% forest.whr.types)
+ssn_con_forest <- subset(ssn, subset = ssn$WHRTYPE %in% forest.whr.types)
 
 sn <- shapefile("features/SierraEcoregion_TNC/SierraEcoregion_TNC.shp")
 raster_template <- raster("features/sierra-nevada-250m-evi-template.tif")
