@@ -71,7 +71,7 @@ nsn.raster.nonconifer <- gdal_rasterize("features/intermediate products/CALVEG s
                              l="CALVEG_nsn_nonconifer",a_nodata=NA,verbose=TRUE,output_Raster=TRUE)
 ssn.raster.nonconifer <- gdal_rasterize("features/intermediate products/CALVEG shapefiles/CALVEG_ssn_nonconifer.shp","features/intermediate products/calveg_nonconifer_ssn.tif",
                                         a="con_forest", tr=template.res, te=template.extent, at=TRUE,
-                                        l="CALVEG_nsn_nonconifer",a_nodata=NA,verbose=TRUE,output_Raster=TRUE)
+                                        l="CALVEG_ssn_nonconifer",a_nodata=NA,verbose=TRUE,output_Raster=TRUE)
 
 # Merge both conifer rasters (north and south Sierra)
 sn.raster <- merge(nsn.raster,ssn.raster)
