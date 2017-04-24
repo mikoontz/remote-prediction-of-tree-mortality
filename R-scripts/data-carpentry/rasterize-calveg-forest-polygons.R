@@ -102,5 +102,5 @@ sn_con_forest_r[is.na(sn_con_forest_r)] <- 0 # Turn all masked pixels to 0
 plot(sn_con_forest_r)
 plot(sn, add = TRUE)
 
-filename <- "features/sierra-nevada-250m-calveg-conifer-forested-pixels-by-whr-type-no-mask.tif"
+filename <- "features/sierra-nevada-250m-calveg-conifer-forested-pixels-by-whr-type-no-mask_full-cell.tif"
 writeRaster(sn_con_forest_r, filename = filename, format="GTiff", overwrite=TRUE)
