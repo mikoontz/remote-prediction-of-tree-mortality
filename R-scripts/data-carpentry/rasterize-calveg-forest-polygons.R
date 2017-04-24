@@ -9,6 +9,17 @@ library(fasterize)
 nsn <- st_read(dsn = "features/ExistingVegNorSierra2000_2014_v1.gdb", stringsAsFactors = FALSE) # From DY: I had to remove the slash after the filename for this to work
 ssn <- st_read(dsn = "features/ExistingVegSouthSierra2000_2008_v1.gdb", stringsAsFactors = FALSE) # From DY: I had to remove the slash after the filename for this to work
 
+sn <- shapefile("features/SierraEcoregion_TNC/SierraEcoregion_TNC.shp")
+raster_template <- raster("features/sierra-nevada-250m-evi-template.tif")
+
+nsn <- st_transform(nsn, crs = proj4string(raster_template))
+ssn <- st_transform(ssn, crs = proj4string(raster_template))
+
+# Convert the layers to SpatialPolygonsDataFrame to be able to use rasterize on it
+
+
+
+
 # Subsets by Wildlife Habitat Relationship lifeform (https://www.fs.fed.us/r5/rsl/projects/classification/cv-cwhr-xwalk.html)
 # nsn_con_forest <- subset(nsn,
 #                   subset =
@@ -25,7 +36,7 @@ ssn <- st_read(dsn = "features/ExistingVegSouthSierra2000_2008_v1.gdb", stringsA
 # Subsets by Wildlife Habitat Relationship type (http://frap.fire.ca.gov/projects/frap_veg/classification)
 # The end product will be a raster with each forested cell's center having at least some overlap with a conifer forest polygon
 
-forest.whr.types <- c("SMC",  # Sierra mixed conifer
+con.whr.types <- c("SMC",  # Sierra mixed conifer
                       "MCN",  # Mixed conifer
                       "MHC",  # Mixed hardwood-conifer
                       "SCN",  # Subalpine conifer
@@ -35,20 +46,28 @@ forest.whr.types <- c("SMC",  # Sierra mixed conifer
                       "RFR",  # Red fir
                       "DFR")  # Douglas-fir
 
-nsn_con_forest <- subset(nsn, subset = nsn$WHRTYPE %in% forest.whr.types)
-ssn_con_forest <- subset(ssn, subset = ssn$WHRTYPE %in% forest.whr.types)
+# Assign each polygon a flag indicating whether it's a conifer forest type
+nsn$con_forest <- ifelse(nsn$WHRTYPE %in% con.whr.types,1,0)
+ssn$con_forest <- ifelse(ssn$WHRTYPE %in% con.whr.types,1,0)
 
-sn <- shapefile("features/SierraEcoregion_TNC/SierraEcoregion_TNC.shp")
-raster_template <- raster("features/sierra-nevada-250m-evi-template.tif")
 
-nsn_con_forest <- st_transform(nsn_con_forest, crs = proj4string(raster_template))
-ssn_con_forest <- st_transform(ssn_con_forest, crs = proj4string(raster_template))
+# All pixels whose centers overlap a forested polygon will get a value of 1; cells whose centers overlap non-forested polygons get 0; cells whose centers don't overlap any polygons get NA
+nsn_con_forest_r <- fasterize(sf = nsn,
+                               raster = raster_template,field="con_forest")
+ssn_con_forest_r <- fasterize(sf = ssn,
+                              raster = raster_template,field="con_forest")
 
-# All pixels whose centers overlap a forested polygon will get a value of 1
-nsn_con_forest_r <- fasterize(sf = nsn_con_forest,
-                               raster = raster_template)
-ssn_con_forest_r <- fasterize(sf = ssn_con_forest,
-                               raster = raster_template)
+# All pixels that contain an edge of a non-conifer polygon will get a value of 1
+nsn_noncon_forest_r <- rasterize(SpatialLinesDataFrame(nsn),raster_template, )
+
+
+
+
+
+
+
+
+
 
 # Combines the North Sierra Nevada and the South Sierra Nevada
 sn_con_forest_r <- merge(nsn_con_forest_r, ssn_con_forest_r)
