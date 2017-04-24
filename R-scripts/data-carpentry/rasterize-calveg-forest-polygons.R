@@ -8,6 +8,9 @@ library(fasterize)
 
 library(gdalUtils)
 
+#Need these directories to output large intermediate data files, but they're ignored in .gitignore so they aren't populated to start, so create them if they don't exist
+dir.create("features/intermediate products")
+dir.create("features/intermediate products/CALVEG shapefiles")
 
 # Define conifer WHR types (http://frap.fire.ca.gov/projects/frap_veg/classification)
 con.whr.types <- c("SMC",  # Sierra mixed conifer
