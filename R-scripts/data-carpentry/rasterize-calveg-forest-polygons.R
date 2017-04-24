@@ -6,77 +6,91 @@ library(devtools)
 # devtools::install_github("ecohealthalliance/fasterize")
 library(fasterize)
 
+library(gdalUtils)
+
+
+# Define conifer WHR types (http://frap.fire.ca.gov/projects/frap_veg/classification)
+con.whr.types <- c("SMC",  # Sierra mixed conifer
+                   "MCN",  # Mixed conifer
+                   "MHC",  # Mixed hardwood-conifer
+                   "SCN",  # Subalpine conifer
+                   "JPN",  # Jeffrey pine
+                   "PPN",  # Ponderosa pine
+                   "WFR",  # White fir
+                   "RFR",  # Red fir
+                   "DFR")  # Douglas-fir
+
+# Read in CALVEG layers
 nsn <- st_read(dsn = "features/ExistingVegNorSierra2000_2014_v1.gdb", stringsAsFactors = FALSE) # From DY: I had to remove the slash after the filename for this to work
 ssn <- st_read(dsn = "features/ExistingVegSouthSierra2000_2008_v1.gdb", stringsAsFactors = FALSE) # From DY: I had to remove the slash after the filename for this to work
 
+# Keep only the relevant attributes
+nsn <- nsn[,c("WHRTYPE","WHRLIFEFORM")]
+ssn <- ssn[,c("WHRTYPE","WHRLIFEFORM")]
+
+# Load project boundary and raster template
 sn <- shapefile("features/SierraEcoregion_TNC/SierraEcoregion_TNC.shp")
 raster_template <- raster("features/sierra-nevada-250m-evi-template.tif")
 
+# Reproject CALVEG layers to projection of raster template
 nsn <- st_transform(nsn, crs = proj4string(raster_template))
 ssn <- st_transform(ssn, crs = proj4string(raster_template))
 
-# Convert the layers to SpatialPolygonsDataFrame to be able to use rasterize on it
+# Create new column that indicates whether a polygon contains conifer forest (1 if yes, 2 if no)
+nsn$con_forest <- ifelse(nsn$WHRTYPE %in% con.whr.types,1,2)
+ssn$con_forest <- ifelse(ssn$WHRTYPE %in% con.whr.types,1,2)
 
+# Create another shapefile that contains only non-conifer polygons
+nsn.nonconifer <- nsn[nsn$con_forest != 1,]
+ssn.nonconifer <- ssn[ssn$con_forest != 1,]
 
+# Write to disk in order to rasterize using gdal_rasterize in next step
+# But first need to delete the files if they already exist because st_write has some problems with overwriting
+do.call(file.remove, list(list.files("features/intermediate products/CALVEG shapefiles", full.names = TRUE)))
 
+st_write(nsn,"features/intermediate products/CALVEG shapefiles/CALVEG_nsn.shp") #annoyingly this puts a second ".shp" after the filename
+st_write(nsn.nonconifer,"features/intermediate products/CALVEG shapefiles/CALVEG_nsn_nonconifer.shp")
+st_write(ssn,"features/intermediate products/CALVEG shapefiles/CALVEG_ssn.shp")
+st_write(ssn.nonconifer,"features/intermediate products/CALVEG shapefiles/CALVEG_ssn_nonconifer.shp")
 
-# Subsets by Wildlife Habitat Relationship lifeform (https://www.fs.fed.us/r5/rsl/projects/classification/cv-cwhr-xwalk.html)
-# nsn_con_forest <- subset(nsn,
-#                   subset =
-#                     nsn$WHRLIFEFORM == "WHR_CON" | # Conifer forest/woodland
-#                     nsn$WHRLIFEFORM == "WHR_MIX")  # Mixed conifer and hardwood forest/woodland
-# 
-# ssn_con_forest <- subset(ssn,
-#                   subset =
-#                     ssn$WHRLIFEFORM == "WHR_CON" | # Conifer forest/woodland
-#                     ssn$WHRLIFEFORM == "WHR_MIX")  # Mixed conifer and hardwood forest/woodland
-# 
-# filename <- "features/sierra-nevada-250m-calveg-conifer-forested-pixels-by-whr-lifeform.tif"
+# Get resolution and extent of template raster (needed for rasterization)
+template.res <- res(raster_template)
+template.extent <- extent(raster_template)[c(1,3,2,4)]
 
-# Subsets by Wildlife Habitat Relationship type (http://frap.fire.ca.gov/projects/frap_veg/classification)
-# The end product will be a raster with each forested cell's center having at least some overlap with a conifer forest polygon
+# Make raster indicating whether the center of each cell overlaps a polygon that is a conifer type (1 if yes; 2 if no; nodata if no polygon overlap)
+nsn.raster <- gdal_rasterize("features/intermediate products/CALVEG shapefiles/CALVEG_nsn.shp","features/intermediate products/calveg_conifer_nsn.tif",
+                              a="con_forest", tr=template.res, te=template.extent,
+                               l="CALVEG_nsn",a_nodata=NA,verbose=TRUE,output_Raster=TRUE)
+ssn.raster <- gdal_rasterize("features/intermediate products/CALVEG shapefiles/CALVEG_ssn.shp","features/intermediate products/calveg_conifer_ssn.tif",
+                             a="con_forest", tr=template.res, te=template.extent,
+                             l="CALVEG_ssn",a_nodata=NA,verbose=TRUE,output_Raster=TRUE)
 
-con.whr.types <- c("SMC",  # Sierra mixed conifer
-                      "MCN",  # Mixed conifer
-                      "MHC",  # Mixed hardwood-conifer
-                      "SCN",  # Subalpine conifer
-                      "JPN",  # Jeffrey pine
-                      "PPN",  # Ponderosa pine
-                      "WFR",  # White fir
-                      "RFR",  # Red fir
-                      "DFR")  # Douglas-fir
+# Make a raster indicating whether ANY PART of the cell overlaps a polygon that is a non-forest type (2 if this is the case; nodata if it is not)
+nsn.raster.nonconifer <- gdal_rasterize("features/intermediate products/CALVEG shapefiles/CALVEG_nsn_nonconifer.shp","features/intermediate products/calveg_nonconifer_nsn.tif",
+                             a="con_forest", tr=template.res, te=template.extent, at=TRUE,
+                             l="CALVEG_nsn_nonconifer",a_nodata=NA,verbose=TRUE,output_Raster=TRUE)
+ssn.raster.nonconifer <- gdal_rasterize("features/intermediate products/CALVEG shapefiles/CALVEG_ssn_nonconifer.shp","features/intermediate products/calveg_nonconifer_ssn.tif",
+                                        a="con_forest", tr=template.res, te=template.extent, at=TRUE,
+                                        l="CALVEG_nsn_nonconifer",a_nodata=NA,verbose=TRUE,output_Raster=TRUE)
 
-# Assign each polygon a flag indicating whether it's a conifer forest type
-nsn$con_forest <- ifelse(nsn$WHRTYPE %in% con.whr.types,1,0)
-ssn$con_forest <- ifelse(ssn$WHRTYPE %in% con.whr.types,1,0)
+# Merge both conifer rasters (north and south Sierra)
+sn.raster <- merge(nsn.raster,ssn.raster)
 
+# Merge both nonconifer rasters (north and south Sierra); where they overlap, take the maximum (this means set a cell to "nonconifer" if either the north or south raster said nonconifer)
+sn.raster.nonconifer <- mosaic(nsn.raster.nonconifer,ssn.raster.nonconifer,fun=max)
 
-# All pixels whose centers overlap a forested polygon will get a value of 1; cells whose centers overlap non-forested polygons get 0; cells whose centers don't overlap any polygons get NA
-nsn_con_forest_r <- fasterize(sf = nsn,
-                               raster = raster_template,field="con_forest")
-ssn_con_forest_r <- fasterize(sf = ssn,
-                              raster = raster_template,field="con_forest")
+# Identify cells where the center of the cell overlapped a conifer polygon, and no part of the cell overlapped a non-conifer polygon
+sn_con_forest_r <- (sn.raster == 1) & (is.na(sn.raster.nonconifer))
 
-# All pixels that contain an edge of a non-conifer polygon will get a value of 1
-nsn_noncon_forest_r <- rasterize(SpatialLinesDataFrame(nsn),raster_template, )
+# Mask out the non-conifer pixels (they are at this point assigned 0; set them to NA)
+sn_con_forest_r[sn_con_forest_r == 0] <- NA
 
-
-
-
-
-
-
-
-
-
-# Combines the North Sierra Nevada and the South Sierra Nevada
-sn_con_forest_r <- merge(nsn_con_forest_r, ssn_con_forest_r)
 
 # There are some pixels from the South Sierra Nevada region that are not in the
 # SierraEcoregion_TNC polygon, so we can mask those out.
 sn_con_forest_r <- mask(sn_con_forest_r, sn)
 
-filename <- "features/sierra-nevada-250m-calveg-conifer-forested-pixels-by-whr-type.tif"
+filename <- "features/sierra-nevada-250m-calveg-conifer-forested-pixels-by-whr-type_full-cell.tif"
 writeRaster(sn_con_forest_r, filename = filename, format="GTiff", overwrite=TRUE)
 
 # We want the "good" (i.e. forested) pixels to have a value of 1
