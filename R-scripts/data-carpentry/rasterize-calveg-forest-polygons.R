@@ -9,8 +9,8 @@ library(fasterize)
 library(gdalUtils)
 
 #Need these directories to output large intermediate data files, but they're ignored in .gitignore so they aren't populated to start, so create them if they don't exist
-dir.create("features/intermediate products")
-dir.create("features/intermediate products/CALVEG shapefiles")
+dir.create("features/intermediate-products")
+dir.create("features/intermediate-products/CALVEG-shapefiles")
 
 # Define conifer WHR types (http://frap.fire.ca.gov/projects/frap_veg/classification)
 con.whr.types <- c("SMC",  # Sierra mixed conifer
@@ -49,19 +49,19 @@ ssn.nonconifer <- ssn[ssn$con_forest != 1,]
 
 # Write to disk in order to rasterize using gdal_rasterize in next step
 # But first need to delete the files if they already exist because st_write has some problems with overwriting
-do.call(file.remove, list(list.files("features/intermediate products/CALVEG shapefiles", full.names = TRUE)))
+do.call(file.remove, list(list.files("features/intermediate products/CALVEG-shapefiles", full.names = TRUE)))
 
-st_write(nsn,"features/intermediate products/CALVEG shapefiles/CALVEG_nsn.shp") #annoyingly this puts a second ".shp" after the filename
-st_write(nsn.nonconifer,"features/intermediate products/CALVEG shapefiles/CALVEG_nsn_nonconifer.shp")
-st_write(ssn,"features/intermediate products/CALVEG shapefiles/CALVEG_ssn.shp")
-st_write(ssn.nonconifer,"features/intermediate products/CALVEG shapefiles/CALVEG_ssn_nonconifer.shp")
+st_write(nsn,"features/intermediate products/CALVEG-shapefiles/CALVEG_nsn.shp") #annoyingly this puts a second ".shp" after the filename
+st_write(nsn.nonconifer,"features/intermediate-products/CALVEG-shapefiles/CALVEG_nsn_nonconifer.shp")
+st_write(ssn,"features/intermediate products/CALVEG-shapefiles/CALVEG_ssn.shp")
+st_write(ssn.nonconifer,"features/intermediate products/CALVEG-shapefiles/CALVEG_ssn_nonconifer.shp")
 
 # Get resolution and extent of template raster (needed for rasterization)
 template.res <- res(raster_template)
 template.extent <- extent(raster_template)[c(1,3,2,4)]
 
 # Make raster indicating whether the center of each cell overlaps a polygon that is a conifer type (1 if yes; 2 if no; nodata if no polygon overlap)
-nsn.raster <- gdal_rasterize("features/intermediate products/CALVEG shapefiles/CALVEG_nsn.shp","features/intermediate products/calveg_conifer_nsn.tif",
+nsn.raster <- gdal_rasterize("features/intermediate-products/CALVEG-shapefiles/CALVEG_nsn.shp","features/intermediate products/calveg_conifer_nsn.tif",
                               a="con_forest", tr=template.res, te=template.extent,
                                l="CALVEG_nsn",a_nodata=NA,verbose=TRUE,output_Raster=TRUE)
 ssn.raster <- gdal_rasterize("features/intermediate products/CALVEG shapefiles/CALVEG_ssn.shp","features/intermediate products/calveg_conifer_ssn.tif",
@@ -69,10 +69,10 @@ ssn.raster <- gdal_rasterize("features/intermediate products/CALVEG shapefiles/C
                              l="CALVEG_ssn",a_nodata=NA,verbose=TRUE,output_Raster=TRUE)
 
 # Make a raster indicating whether ANY PART of the cell overlaps a polygon that is a non-forest type (2 if this is the case; nodata if it is not)
-nsn.raster.nonconifer <- gdal_rasterize("features/intermediate products/CALVEG shapefiles/CALVEG_nsn_nonconifer.shp","features/intermediate products/calveg_nonconifer_nsn.tif",
+nsn.raster.nonconifer <- gdal_rasterize("features/intermediate-products/CALVEG shapefiles/CALVEG_nsn_nonconifer.shp","features/intermediate-products/calveg_nonconifer_nsn.tif",
                              a="con_forest", tr=template.res, te=template.extent, at=TRUE,
                              l="CALVEG_nsn_nonconifer",a_nodata=NA,verbose=TRUE,output_Raster=TRUE)
-ssn.raster.nonconifer <- gdal_rasterize("features/intermediate products/CALVEG shapefiles/CALVEG_ssn_nonconifer.shp","features/intermediate products/calveg_nonconifer_ssn.tif",
+ssn.raster.nonconifer <- gdal_rasterize("features/intermediate-products/CALVEG-shapefiles/CALVEG_ssn_nonconifer.shp","features/intermediate-products/calveg_nonconifer_ssn.tif",
                                         a="con_forest", tr=template.res, te=template.extent, at=TRUE,
                                         l="CALVEG_ssn_nonconifer",a_nodata=NA,verbose=TRUE,output_Raster=TRUE)
 
@@ -93,7 +93,7 @@ sn_con_forest_r[sn_con_forest_r == 0] <- NA
 # SierraEcoregion_TNC polygon, so we can mask those out.
 sn_con_forest_r <- mask(sn_con_forest_r, sn)
 
-filename <- "features/sierra-nevada-250m-calveg-conifer-forested-pixels-by-whr-type_full-cell.tif"
+filename <- "features/sierra-nevada-250m-calveg-conifer-forested-pixels-by-whr-type-full-cell.tif"
 writeRaster(sn_con_forest_r, filename = filename, format="GTiff", overwrite=TRUE)
 
 # We want the "good" (i.e. forested) pixels to have a value of 1
@@ -105,5 +105,5 @@ sn_con_forest_r[is.na(sn_con_forest_r)] <- 0 # Turn all masked pixels to 0
 plot(sn_con_forest_r)
 plot(sn, add = TRUE)
 
-filename <- "features/sierra-nevada-250m-calveg-conifer-forested-pixels-by-whr-type-no-mask_full-cell.tif"
+filename <- "features/sierra-nevada-250m-calveg-conifer-forested-pixels-by-whr-type-no-mask-full-cell.tif"
 writeRaster(sn_con_forest_r, filename = filename, format="GTiff", overwrite=TRUE)
