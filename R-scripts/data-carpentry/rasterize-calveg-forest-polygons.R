@@ -40,31 +40,39 @@ nsn <- st_transform(nsn, crs = proj4string(raster_template))
 ssn <- st_transform(ssn, crs = proj4string(raster_template))
 
 # Create new column that indicates whether a polygon contains conifer forest (1 if yes, 2 if no)
-nsn$con_forest <- ifelse(nsn$WHRTYPE %in% con.whr.types,1,2)
-ssn$con_forest <- ifelse(ssn$WHRTYPE %in% con.whr.types,1,2)
+nsn$con_forest <- ifelse(test = nsn$WHRTYPE %in% con.whr.types, yes = 1, no = 2)
+ssn$con_forest <- ifelse(test = ssn$WHRTYPE %in% con.whr.types, yes = 1, no = 2)
 
 # Create another shapefile that contains only non-conifer polygons
-nsn.nonconifer <- nsn[nsn$con_forest != 1,]
-ssn.nonconifer <- ssn[ssn$con_forest != 1,]
+nsn.nonconifer <- nsn[nsn$con_forest != 1, ]
+ssn.nonconifer <- ssn[ssn$con_forest != 1, ]
 
 # Write to disk in order to rasterize using gdal_rasterize in next step
 # But first need to delete the files if they already exist because st_write has some problems with overwriting
-do.call(file.remove, list(list.files("features/intermediate products/CALVEG-shapefiles", full.names = TRUE)))
+do.call(file.remove, list(list.files("features/intermediate-products/CALVEG-shapefiles", full.names = TRUE)))
 
-st_write(nsn,"features/intermediate products/CALVEG-shapefiles/CALVEG_nsn.shp") #annoyingly this puts a second ".shp" after the filename
-st_write(nsn.nonconifer,"features/intermediate-products/CALVEG-shapefiles/CALVEG_nsn_nonconifer.shp")
-st_write(ssn,"features/intermediate products/CALVEG-shapefiles/CALVEG_ssn.shp")
-st_write(ssn.nonconifer,"features/intermediate products/CALVEG-shapefiles/CALVEG_ssn_nonconifer.shp")
+st_write(obj = nsn, 
+         dsn = "features/intermediate-products/CALVEG-shapefiles/CALVEG_nsn", 
+         driver = "ESRI Shapefile")
+st_write(obj = nsn.nonconifer, 
+         dsn = "features/intermediate-products/CALVEG-shapefiles/CALVEG_nsn_nonconifer", 
+         driver = "ESRI Shapefile")
+st_write(obj = ssn, 
+         dsn = "features/intermediate products/CALVEG-shapefiles/CALVEG_ssn", 
+         driver = "ESRI Shapefile")
+st_write(obj = ssn.nonconifer, 
+         dsn = "features/intermediate products/CALVEG-shapefiles/CALVEG_ssn_nonconifer", 
+         driver = "ESRI Shapefile")
 
 # Get resolution and extent of template raster (needed for rasterization)
 template.res <- res(raster_template)
 template.extent <- extent(raster_template)[c(1,3,2,4)]
 
 # Make raster indicating whether the center of each cell overlaps a polygon that is a conifer type (1 if yes; 2 if no; nodata if no polygon overlap)
-nsn.raster <- gdal_rasterize("features/intermediate-products/CALVEG-shapefiles/CALVEG_nsn.shp","features/intermediate products/calveg_conifer_nsn.tif",
+nsn.raster <- gdal_rasterize("features/intermediate-products/CALVEG-shapefiles/CALVEG_nsn.shp","features/intermediate-products/calveg_conifer_nsn.tif",
                               a="con_forest", tr=template.res, te=template.extent,
                                l="CALVEG_nsn",a_nodata=NA,verbose=TRUE,output_Raster=TRUE)
-ssn.raster <- gdal_rasterize("features/intermediate products/CALVEG shapefiles/CALVEG_ssn.shp","features/intermediate products/calveg_conifer_ssn.tif",
+ssn.raster <- gdal_rasterize("features/intermediate products/CALVEG shapefiles/CALVEG_ssn.shp","features/intermediate-products/calveg_conifer_ssn.tif",
                              a="con_forest", tr=template.res, te=template.extent,
                              l="CALVEG_ssn",a_nodata=NA,verbose=TRUE,output_Raster=TRUE)
 
