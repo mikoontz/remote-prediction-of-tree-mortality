@@ -2,9 +2,9 @@
 library(raster)
 library(rgdal)
 library(sf)
-library(devtools)
+#library(devtools)
 # devtools::install_github("ecohealthalliance/fasterize")
-library(fasterize)
+#library(fasterize)
 
 library(gdalUtils)
 
@@ -58,10 +58,10 @@ st_write(obj = nsn.nonconifer,
          dsn = "features/intermediate-products/CALVEG-shapefiles/CALVEG_nsn_nonconifer", 
          driver = "ESRI Shapefile")
 st_write(obj = ssn, 
-         dsn = "features/intermediate products/CALVEG-shapefiles/CALVEG_ssn", 
+         dsn = "features/intermediate-products/CALVEG-shapefiles/CALVEG_ssn", 
          driver = "ESRI Shapefile")
 st_write(obj = ssn.nonconifer, 
-         dsn = "features/intermediate products/CALVEG-shapefiles/CALVEG_ssn_nonconifer", 
+         dsn = "features/intermediate-products/CALVEG-shapefiles/CALVEG_ssn_nonconifer", 
          driver = "ESRI Shapefile")
 
 # Get resolution and extent of template raster (needed for rasterization)
@@ -69,18 +69,18 @@ template.res <- res(raster_template)
 template.extent <- extent(raster_template)[c(1,3,2,4)]
 
 # Make raster indicating whether the center of each cell overlaps a polygon that is a conifer type (1 if yes; 2 if no; nodata if no polygon overlap)
-nsn.raster <- gdal_rasterize("features/intermediate-products/CALVEG-shapefiles/CALVEG_nsn.shp","features/intermediate-products/calveg_conifer_nsn.tif",
+nsn.raster <- gdal_rasterize("features/intermediate-products/CALVEG-shapefiles/CALVEG_nsn/CALVEG_nsn.shp","features/intermediate-products/CALVEG-shapefiles/calveg_nsn/calveg_conifer_nsn.tif",
                               a="con_forest", tr=template.res, te=template.extent,
                                l="CALVEG_nsn",a_nodata=NA,verbose=TRUE,output_Raster=TRUE)
-ssn.raster <- gdal_rasterize("features/intermediate products/CALVEG shapefiles/CALVEG_ssn.shp","features/intermediate-products/calveg_conifer_ssn.tif",
+ssn.raster <- gdal_rasterize("features/intermediate-products/CALVEG-shapefiles/CALVEG_ssn/CALVEG_ssn.shp","features/intermediate-products/CALVEG-shapefiles/CALVEG_ssn/calveg_conifer_ssn.tif",
                              a="con_forest", tr=template.res, te=template.extent,
                              l="CALVEG_ssn",a_nodata=NA,verbose=TRUE,output_Raster=TRUE)
 
 # Make a raster indicating whether ANY PART of the cell overlaps a polygon that is a non-forest type (2 if this is the case; nodata if it is not)
-nsn.raster.nonconifer <- gdal_rasterize("features/intermediate-products/CALVEG shapefiles/CALVEG_nsn_nonconifer.shp","features/intermediate-products/calveg_nonconifer_nsn.tif",
+nsn.raster.nonconifer <- gdal_rasterize("features/intermediate-products/CALVEG-shapefiles/CALVEG_nsn_nonconifer/CALVEG_nsn_nonconifer.shp","features/intermediate-products/CALVEG-shapefiles/calveg_nsn_nonconifer/calveg_nonconifer_nsn.tif",
                              a="con_forest", tr=template.res, te=template.extent, at=TRUE,
                              l="CALVEG_nsn_nonconifer",a_nodata=NA,verbose=TRUE,output_Raster=TRUE)
-ssn.raster.nonconifer <- gdal_rasterize("features/intermediate-products/CALVEG-shapefiles/CALVEG_ssn_nonconifer.shp","features/intermediate-products/calveg_nonconifer_ssn.tif",
+ssn.raster.nonconifer <- gdal_rasterize("features/intermediate-products/CALVEG-shapefiles/CALVEG_ssn_nonconifer/CALVEG_ssn_nonconifer.shp","features/intermediate-products/CALVEG-shapefiles/calveg_ssn_nonconifer/calveg_nonconifer_ssn.tif",
                                         a="con_forest", tr=template.res, te=template.extent, at=TRUE,
                                         l="CALVEG_ssn_nonconifer",a_nodata=NA,verbose=TRUE,output_Raster=TRUE)
 
