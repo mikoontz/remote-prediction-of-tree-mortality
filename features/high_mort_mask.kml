@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document id="root_doc">
+<Schema name="high_mort_mask.kml" id="high_mort_mask.kml">
+	<SimpleField name="id" type="float"></SimpleField>
+</Schema>
+<Folder><name>high_mort_mask.kml</name>
+  <Placemark>
+	<name>1</name>
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+      <Polygon><outerBoundaryIs><LinearRing><coordinates>-119.417330591354,37.2670427594304 -119.207433242475,37.2672714744837 -119.199547576234,37.1576617030626 -119.20219049321,37.0783932184746 -119.092581310496,37.0372410013669 -119.09557249038,36.9377913771978 -119.247397527289,36.8883956933675 -119.449748932455,37.0394351781971 -119.461905446633,37.1058025111857 -119.417330591354,37.2670427594304</coordinates></LinearRing></outerBoundaryIs></Polygon>
+  </Placemark>
+</Folder>
+</Document></kml>
