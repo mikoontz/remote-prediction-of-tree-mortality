@@ -6,4 +6,4 @@ features/ExistingVegNorSierra2000_2014_v1.gdb
 features/ExistingVegSouthSierra2000_2008_v1.gdb
 features/Intermediate-products/*
 ts/
-py-scripts/data-carpentry/.ipynb_checkpoints
+py-scripts/data-carpentry/.ipynb_checkpoints/*
