@@ -1,7 +1,8 @@
 /**** Start of imports. If edited, may not auto-convert in the playground. ****/
 var sn = ee.FeatureCollection("ft:1VX1Uny1uAIYdgfuvsjLJVw1wMkhmSZq7fCQ0gowV"),
     modis = ee.ImageCollection("MODIS/006/MOD13Q1"),
-    conifer_forest = ee.Image("users/mkoontz/sierra-nevada-250m-calveg-conifer-forested-pixels-by-whr-type-no-mask");
+    conifer_forest_v1 = ee.Image("users/mkoontz/sierra-nevada-250m-calveg-conifer-forested-pixels-by-whr-type-no-mask"),
+    conifer_forest = ee.Image("users/mkoontz/sierra-nevada-250m-calveg-conifer-forested-pixels-by-whr-type-no-mask-full-cell");
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
 // This function will mask each image in the image collection one at a time.
 // For each image, each pixel that is non-forest and/or of bad quality will be
@@ -13,7 +14,7 @@ var quality_forest_mask = function(img) {
   var date = ee.Date(img.get('system:time_start')).format("YYYYMMdd");
   date = ee.Number.parse(date);
   
-  ee.Image(ee.Number(img.get('system:time_start')))
+  date = ee.Image(ee.Number(img.get('system:time_start')))
               .rename('date')
               .divide(1000);
   
@@ -21,11 +22,6 @@ var quality_forest_mask = function(img) {
                   .select(["SummaryQA"])
                   .rename(["quality_pixel"])
                   .eq(0);
-
-// We end up casting everything to 32 bit integers so no need for this
-  // var detailedQA = img
-  //                   .select(["DetailedQA"])  
-  //                   .toInt16();             // Cast all bands to signed 16 bit integers
 
   var clean_img = img
                     .select(["NDVI", 
@@ -40,7 +36,6 @@ var quality_forest_mask = function(img) {
                     "DayOfYear",
                     "SummaryQA",
                     "DetailedQA"])
-                    // .addBands(detailedQA)
                     .addBands(date)
                     .updateMask(quality_pixels)
                     .updateMask(conifer_forest)
@@ -91,29 +86,23 @@ var quality_forest_mask = function(img) {
 // function to each image.
 var m_modis = modis.map(quality_forest_mask);
 
-// var img = ee.Image(modis.first());
-// var date = ee.Date(img.get('system:time_start')).format("YYYYMMdd");
-// print(date);
-// date = ee.Number.parse(date).toInt16();
-// print(date);
-
-// var date2 = ee.Date(img.get('system:time_start')).millis().divide(1000000);
-// print(date2);
-// date2 = date2.toInt16();
-// print(date2);
-
-
 // Visualize
 var viridis = ["440154", "482878", "3E4A89", "31688E", "26828E", "1F9E89", "35B779", "6DCD59", "B4DE2C", "FDE725"];
-// Map.addLayer(img.select(["EVI"]), {min: 0, max: 3000, palette: viridis}, "Export img");
+
+var img = ee.Image(m_modis.first());
+
+Map.addLayer(img.select(["EVI"]), {min: 0, max: 3000, palette: viridis}, "Export img");
+Map.addLayer(conifer_forest, {}, "Conservative forest mask");
+Map.addLayer(conifer_forest_v1, {}, "Anti-conservative forest mask");
+
 Map.centerObject(sn);
 
 // There are 391 images
 // print(m_modis.size().getInfo());
 
 // var num_imgs = 391;
-var first_img = 50;
-var num_imgs = 100; // in the next round, first_img should equal this value; It will be 391 in the last round.
+var first_img = 0;
+var num_imgs = 391; // in the next round, first_img should equal this value; It will be 391 in the last round.
 
 // Create a list with num_imgs empty list elements
 var metadata = ee.List.sequence({
@@ -135,8 +124,8 @@ for (var i = first_img; i < num_imgs; i++) {
   
   Export.image.toDrive({
       image: img,
-      description: 'sn-forested-quality-modis-ts-image-' + i,
-      folder: 'ee/sierra-nevada-forested-quality-pixel-modis-time-series',
+      description: 'sn-whole-ts-modis-forest-quality-mask-' + i,
+      folder: 'ee/sierra-nevada-forest-quality-mask-modis-time-series',
       scale: 250,
       region: sn,
       crs: 'EPSG:3310'
@@ -148,7 +137,7 @@ metadata = ee.FeatureCollection(metadata);
 Export.table.toDrive({
   collection: metadata,
   description: "metadata",
-  folder: "ee/sierra-nevada-forested-quality-pixel-modis-time-series",
+  folder: "ee/sierra-nevada-forest-quality-mask-modis-time-series",
   fileNamePrefix: "metadata",
   fileFormat: "CSV"
 });

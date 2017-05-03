@@ -1,11 +1,11 @@
 /**** Start of imports. If edited, may not auto-convert in the playground. ****/
 var sn = ee.FeatureCollection("ft:1VX1Uny1uAIYdgfuvsjLJVw1wMkhmSZq7fCQ0gowV"),
     modis = ee.ImageCollection("MODIS/006/MOD13Q1"),
-    conifer_forest = ee.Image("users/mkoontz/sierra-nevada-250m-calveg-conifer-forested-pixels-by-whr-type-no-mask"),
+    conifer_forest_v1 = ee.Image("users/mkoontz/sierra-nevada-250m-calveg-conifer-forested-pixels-by-whr-type-no-mask"),
     geo = ee.FeatureCollection("ft:13cCOGKaj6ae1GScp4k6QsZrUo4IuhFNurz9EPL1N"),
-    proba = ee.ImageCollection("VITO/PROBAV/S1_TOC_100M"),
     l8 = ee.ImageCollection("LANDSAT/LC8_SR"),
-    l7 = ee.ImageCollection("LANDSAT/LE7_SR");
+    l7 = ee.ImageCollection("LANDSAT/LE7_SR"),
+    conifer_forest = ee.Image("users/mkoontz/sierra-nevada-250m-calveg-conifer-forested-pixels-by-whr-type-no-mask-full-cell");
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
 Map.addLayer(geo); // An area of high mortality according to Young et al 2017
 
@@ -58,7 +58,7 @@ var m_modis = modis
 //   Export.video.toDrive({
 //       collection: m_modis,
 //       description: 'sn-high-mortality-area-evi-ts-modis-lower-quality-threshold-mask',
-//       folder: 'ee/sierra-nevada-forested-quality-pixel-time-series-videos',
+//       folder: 'ee/sierra-nevada-forest-quality-mask-time-series-videos',
 //       framesPerSecond: 10,
 //       scale: 250,
 //       region: geo,
@@ -82,7 +82,7 @@ var m_modis = modis
 //   Export.video.toDrive({
 //       collection: l7p,
 //       description: 'sn-high-mortality-area-rgb-ts-landsat-7-no-mask',
-//       folder: 'ee/sierra-nevada-forested-quality-pixel-time-series-videos',
+//       folder: 'ee/sierra-nevada-forest-quality-mask-time-series-videos',
 //       framesPerSecond: 10,
 //       scale: 30,
 //       region: geo,
@@ -107,7 +107,7 @@ var m_modis = modis
 //   Export.video.toDrive({
 //       collection: l8p,
 //       description: 'sn-high-mortality-area-rgb-ts-landsat-8-no-mask',
-//       folder: 'ee/sierra-nevada-forested-quality-pixel-time-series-videos',
+//       folder: 'ee/sierra-nevada-forest-quality-mask-time-series-videos',
 //       framesPerSecond: 10,
 //       scale: 30,
 //       region: geo,
