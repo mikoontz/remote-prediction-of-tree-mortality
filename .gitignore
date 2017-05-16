@@ -5,5 +5,8 @@
 features/ExistingVegNorSierra2000_2014_v1.gdb
 features/ExistingVegSouthSierra2000_2008_v1.gdb
 features/Intermediate-products/*
+features/waterbodies/*
+features/ADS-intermediate-products/*
+features/ADS-shapefiles/*
 ts/
 py-scripts/data-carpentry/.ipynb_checkpoints/*
