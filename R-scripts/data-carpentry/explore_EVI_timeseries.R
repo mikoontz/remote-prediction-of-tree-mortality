@@ -4,6 +4,14 @@
 
 library(sp); library(raster); library(rgdal); library(lattice); library(lme4)
 
+# Enter the locations of files to work with 
+# geotifs are the MODIS EVI data that Mike K exported from Google Earth Engine, they are stored in a single folder (geotif_folder) and are all names consistently with the prefix geotif_filename and a date code. 
+geotif_folder = "./features/ee_sierra-nevada-forest-quality-mask-modis-time-series/"
+geotif_filename =  "sn-whole-ts-modis-forest-quality-mask-"
+tmp = dir(geotif_folder)
+filenames = tmp[grep(geotif_filename, tmp)]
+
+# Set of functions for pulling out and summarizing time series from the geotifs
 
 # function to convert strings from Google Earth in format "37°17'23.2"N" to numeric decimal degrees
 degminsec2dig <- function(x) {
@@ -38,14 +46,6 @@ extract_evi <- function(locs, geotif_folder, geotif_filename, geotif_numbers) {
   return(evivals)
 }
 
-
-# Enter the locations of files to work with 
-
-geotif_folder = "./features/ee_sierra-nevada-forest-quality-mask-modis-time-series/"
-geotif_filename =  "sn-whole-ts-modis-forest-quality-mask-"
-tmp = dir(geotif_folder)
-filenames = tmp[grep(geotif_filename, tmp)]
-loc_filename = ""
 
 
 ## Look at mean EVI response for all PIPO areas in S Sierras
