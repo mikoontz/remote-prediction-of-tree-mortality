@@ -41,22 +41,11 @@ extract_evi <- function(locs, geotif_folder, geotif_filename, geotif_numbers) {
 
 # Enter the locations of files to work with 
 
-geotif_folder = ""
+geotif_folder = "./features/ee_sierra-nevada-forest-quality-mask-modis-time-series/"
 geotif_filename =  "sn-whole-ts-modis-forest-quality-mask-"
 tmp = dir(geotif_folder)
 filenames = tmp[grep(geotif_filename, tmp)]
 loc_filename = ""
-
-# Load CalVeg data and select WHR types to work with 
-#v = readOGR("/Users/latimer/Google Drive/Aerial_Mortality/Data/ExistingVegSouthSierra2000_2008_v1.gdb")
-#sort(unique(v$WHRTYPE))
-#v.PIPO = v[v$WHRTYPE=="PPN",]
-#save(v.PIPO, file="/Users/latimer/Google Drive/Aerial_Mortality/Data/ExistingVegSouthSierra_PIPO.Rdata")
-#v.PIPO.all = aggregate(v.PIPO,  "ECOREGION_DOMAIN")
-#v.PIPO.all
-#save(v.PIPO.all, file="/Users/latimer/Google Drive/Aerial_Mortality/Data/ExistingVegSouthSierra_PIPO.all.Rdata")
-
-
 
 
 ## Look at mean EVI response for all PIPO areas in S Sierras
