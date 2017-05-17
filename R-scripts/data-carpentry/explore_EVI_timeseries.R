@@ -1,8 +1,8 @@
-# Exploratory look at the first 50 MODIS geotifs that Mike extracted
+
+
+# Exploratory look at the MODIS geotifs that Mike extracted using Google Earth Engine
 
 library(sp); library(raster); library(rgdal); library(lattice); library(lme4)
-
-setwd("/Users/latimer/Google Drive/ee_sierra-nevada-forest-quality-mask-modis-time-series")
 
 
 # function to convert strings from Google Earth in format "37°17'23.2"N" to numeric decimal degrees
@@ -25,6 +25,7 @@ read_GE_locs <- function(filename, header) {
 }
 
 # Function to extract time series of EVI values, for SpatialPoints identified in locs, from the set of geotifs in geotif_folder with filename starting with geotif_filename and ending in an integer (set of these integers is in geotif_numbers, per Mike Koontz's file naming system)
+# Note this is very slow, since it reads in the whole raster for each time step, but for this reason also requires little memory
 extract_evi <- function(locs, geotif_folder, geotif_filename, geotif_numbers) {
   r = raster(paste(geotif_filename, geotif_numbers[1], ".tif", sep=""))
   evivals = extract(r, locs)
@@ -40,11 +41,11 @@ extract_evi <- function(locs, geotif_folder, geotif_filename, geotif_numbers) {
 
 # Enter the locations of files to work with 
 
-geotif_folder = "/Users/latimer/Google Drive/ee_sierra-nevada-forest-quality-mask-modis-time-series"
+geotif_folder = ""
 geotif_filename =  "sn-whole-ts-modis-forest-quality-mask-"
 tmp = dir(geotif_folder)
 filenames = tmp[grep(geotif_filename, tmp)]
-loc_filename = "/Users/latimer/Google Drive/Aerial_Mortality/Data/Illillouette_conif_forest_points.txt"
+loc_filename = ""
 
 # Load CalVeg data and select WHR types to work with 
 #v = readOGR("/Users/latimer/Google Drive/Aerial_Mortality/Data/ExistingVegSouthSierra2000_2008_v1.gdb")
@@ -55,21 +56,7 @@ loc_filename = "/Users/latimer/Google Drive/Aerial_Mortality/Data/Illillouette_c
 #v.PIPO.all
 #save(v.PIPO.all, file="/Users/latimer/Google Drive/Aerial_Mortality/Data/ExistingVegSouthSierra_PIPO.all.Rdata")
 
-load("/Users/latimer/Google Drive/Aerial_Mortality/Data/ExistingVegSouthSierra_PIPO.all.Rdata")
-load("/Users/latimer/Google Drive/Aerial_Mortality/Data/ExistingVegSouthSierra_PIPO.Rdata")
-head(v.PIPO@data)
-slotNames(v.PIPO)
-v.PIPO@polygons[1]
-plot(v.PIPO[1:100,])
-hist(log10(v.PIPO$SHAPE_Area))
 
-# Try subsetting / masking the EVI rasters by the PIPO polygons
-r = raster(paste(geotif_filename, datestr[1], ".tif", sep=""))
-plot(r)
-r.sierra = mask(r, sierra)
-mr = mask(r, v.PIPO)
-plot(r)
-plot(mr, add=T, col="red")
 
 
 ## Look at mean EVI response for all PIPO areas in S Sierras
@@ -155,7 +142,7 @@ datestr = sapply(filenames, substr, start=39, stop=46)
 dates = strptime(datestr, "%Y%m%d")
 
 # Get locations for Illillouette
-locs.ill = read_GE_locs("/Users/latimer/Google Drive/Aerial_Mortality/Data/Illillouette_conif_forest_points.txt", header=FALSE)
+locs.ill = read_GE_locs("Illillouette_conif_forest_points.txt", header=FALSE)
 # Reproject to CRS of the geotifs
 r = raster(paste(geotif_filename, datestr[1], ".tif", sep=""))
 locs.ill = SpatialPoints(project(locs.ill, proj4string(r)))
@@ -183,7 +170,7 @@ plot(apply(evivals_ill, 1, mean, na.rm=T), type="l", col="darkgray", lwd=2)
 
 # Try comparing heuristically to points from lower-elevation confer forest stands
 
-locs.shaver = read_GE_locs("/Users/latimer/Google Drive/Aerial_Mortality/Data/Shaver_Lake_conifer_forest_points.txt", header=FALSE)
+locs.shaver = read_GE_locs("Shaver_Lake_conifer_forest_points.txt", header=FALSE)
 
 # Reproject to CRS of the geotifs
 r = raster(paste(geotif_filename, datestr[1], ".tif", sep=""))
@@ -261,11 +248,11 @@ plot(coefs[],2]~annualppt); cor(coefs[,2],annualppt)
 # no correlation
 
 # High vs low mortality near Porterville S Sierras, ~6000 feet
-locs.porthi= read_GE_locs("/Users/latimer/Google Drive/Aerial_Mortality/Data/Porterville_Hi_Mort.txt", header=F)
+locs.porthi= read_GE_locs("Porterville_Hi_Mort.txt", header=F)
 locs.porthi = SpatialPoints(project(locs.porthi, proj4string(r)))
 evivals_porthi = extract_evi(locs.porthi, geotif_folder, geotif_filename, geotif_numbers = datestr)
 
-locs.portlo= read_GE_locs("/Users/latimer/Google Drive/Aerial_Mortality/Data/Porterville_Lomort.txt", header=F)
+locs.portlo= read_GE_locs("Porterville_Lomort.txt", header=F)
 locs.portlo = SpatialPoints(project(locs.portlo, proj4string(r)))
 evivals_portlo = extract_evi(locs.portlo, geotif_folder, geotif_filename, geotif_numbers = datestr)
 
