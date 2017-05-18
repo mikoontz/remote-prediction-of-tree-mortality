@@ -11,6 +11,10 @@ geotif_filename =  "sn-whole-ts-modis-forest-quality-mask-"
 tmp = dir(geotif_folder)
 filenames = tmp[grep(geotif_filename, tmp)]
 
+# Get date information from the geotif filenames
+datestr = sapply(filenames, substr, start=nchar(geotif_filename)+1, stop=nchar(geotif_filename)+8)
+dates = strptime(datestr, "%Y%m%d")
+
 # Set of functions for pulling out and summarizing time series from the geotifs
 
 # function to convert strings from Google Earth in format "37°17'23.2"N" to numeric decimal degrees
@@ -125,11 +129,7 @@ for(i in 1:50) {
     lines(days, evi_PIPO_cells[x,z], col=max(c(30,cols[2]*16000+40)), lwd=2)
     #abline(cols, col="lightgray")
 }
-# Get data information
-#meta = read.csv("metadata0_49.csv")
-#dates = strptime(meta$date, "%Y%m%d")
-datestr = sapply(filenames, substr, start=39, stop=46)
-dates = strptime(datestr, "%Y%m%d")
+
 
 # Get locations for Illillouette
 locs.ill = read_GE_locs("Illillouette_conif_forest_points.txt", header=FALSE)
