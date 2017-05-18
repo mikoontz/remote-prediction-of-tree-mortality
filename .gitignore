@@ -9,5 +9,6 @@ features/Intermediate-products/*
 features/waterbodies/*
 features/ADS-intermediate-products/*
 features/ADS-shapefiles/*
+features/ee_sierra-nevada-forest-quality-mask-modis-time-series/*
 ts/
 py-scripts/data-carpentry/.ipynb_checkpoints/*
