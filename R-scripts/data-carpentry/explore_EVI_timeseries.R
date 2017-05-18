@@ -33,7 +33,8 @@ read_GE_locs <- function(filename, header) {
 }
 
 # Function to extract time series of EVI values, for SpatialPoints identified in locs, from the set of geotifs in geotif_folder with filename starting with geotif_filename and ending in an integer (set of these integers is in geotif_numbers, per Mike Koontz's file naming system)
-# Note this is very slow, since it reads in the whole raster for each time step, but for this reason also requires little memory
+# Note this is very slow, since it reads in the whole raster for each time step, but for this reason also requires little memory. 
+# Probably should make one that first assembles a rasterbrick, then drills through it to get the time series. 
 extract_evi <- function(locs, geotif_folder, geotif_filename, geotif_numbers) {
   r = raster(paste(geotif_filename, geotif_numbers[1], ".tif", sep=""))
   evivals = extract(r, locs)
@@ -51,7 +52,7 @@ extract_evi <- function(locs, geotif_folder, geotif_filename, geotif_numbers) {
 ## Look at mean EVI response for all PIPO areas in S Sierras
 ## Then compare to the EVI response for the "high mortality" PIPO areas in S Sierras
 
-evi_average_by_area <- function(polys, geotif_folder, geotif_filename, geotif_numbers) {
+evi_average_by_polys <- function(polys, geotif_folder, geotif_filename, geotif_numbers) {
   r = raster(paste(geotif_filename, geotif_numbers[1], ".tif", sep=""))
   mr = mask(r, polys)
   z = getValues(mr)
@@ -70,7 +71,7 @@ evi_average_by_area <- function(polys, geotif_folder, geotif_filename, geotif_nu
   return(evi_mean)
 }
 
-evi_cellvalues_by_area <- function(polys, geotif_folder, geotif_filename, geotif_numbers) {
+evi_cellvalues_by_polys <- function(polys, geotif_folder, geotif_filename, geotif_numbers) {
   r = raster(paste(geotif_filename, geotif_numbers[1], ".tif", sep=""))
   mr = mask(r, polys)
   z = getValues(mr)
@@ -88,7 +89,7 @@ evi_cellvalues_by_area <- function(polys, geotif_folder, geotif_filename, geotif
   return(evi_vals)
 }
 
-evi_PIPO = evi_average_by_area(polys=v.PIPO, geotif_folder, geotif_filename, datestr)
+evi_PIPO = evi_average_by_polys(polys=v.PIPO, geotif_folder, geotif_filename, datestr)
 cols = rep("darkgreen", length(evi_PIPO))
 cols[dates$mon %in% c(1,2,3,4,5,11, 12)] = "white"
 plot(evi_PIPO, type="p", lwd=2, col=cols)
@@ -110,7 +111,7 @@ plot(evi_diff)
 # Q how to get the "less affected" parts of this? Separate by Derek's high mortality polygons (high = within those polygons, lower = elsewhere?)
 
 # Since 2013 was the year where the EVI really dropped from normal to drought levels, check what the variation was like among grid cells that year. 
-evi_PIPO_cells = evi_cellvalues_by_area(polys=v.PIPO, geotif_folder, geotif_filename, datestr[dates$year==113])
+evi_PIPO_cells = evi_cellvalues_by_polys(polys=v.PIPO, geotif_folder, geotif_filename, datestr[dates$year==113])
 z = apply(evi_PIPO_cells, 2, f<-function(x){return(sum(!is.na(x)))})
 evi_PIPO_cells = evi_PIPO_cells[,z>12]
 dim(evi_PIPO_cells)
@@ -176,8 +177,6 @@ evivals_shaver = extract_evi(locs.shaver, geotif_folder, geotif_filename, geotif
 par(mfrow=c(3, 4))
 for (i in 1:10) {
   plot(evivals_shaver[,i], type="l", lwd=2, col="darkgray", ylim=c(0.5, 0.9))
-  #lines(c(15, 15), c(0.5, 0.9), col="black")
-  #lines(c(43, 43), c(0.5, 0.9), col="black")
 }
 
 # Plot average
@@ -197,7 +196,7 @@ points(apply(evivals_shaver, 1, mean, na.rm=T),  col=datecols, lwd=2)
 # How variable is it across years in general? 
 
 # look at annual variation for Shaver Lake points
-plotslopes <- function(z, dates) {
+plot.evi.slopes <- function(z, dates) {
   zsub = z[z$mon %in% 6:9,]
   m=lmer(evi~daystd + (1+daystd|year), data=zsub)
   coefs = coef(m)$year
@@ -207,10 +206,10 @@ plotslopes <- function(z, dates) {
 }
 
 z = data.frame(evi=apply(evivals_shaver, 1, mean, na.rm=T),  year=dates$year, mon=dates$mon, day=dates$yday, daystd = scale(dates$yday))
-plotslopes(z, dates)
+plot.evi.slopes(z, dates)
 
 z = data.frame(evi=apply(evivals_ill, 1, mean, na.rm=T), year=dates$year, mon=dates$mon, day=dates$yday, daystd = scale(dates$yday))
-plotslopes(z, dates)
+plot.evi.slopes(z, dates)
 
 # Annual precip for Fresno county from PRISM
 z = data.frame(evi=apply(evivals_shaver, 1, mean, na.rm=T),  year=dates$year, mon=dates$mon, day=dates$yday, daystd = scale(dates$yday))
@@ -225,7 +224,7 @@ plot(coefs[,2]~annualppt); cor(coefs[,2],annualppt)
 
 
 z = data.frame(evi=portlo_mean,  year=dates$year, mon=dates$mon, day=dates$yday, daystd = scale(dates$yday))
-plotslopes(z, dates)
+plot.evi.slopes(z, dates)
 zsub = z[z$mon %in% 6:9,]
 m=lmer(evi~daystd + (1+daystd|year), data=zsub)
 coefs = coef(m)$year
