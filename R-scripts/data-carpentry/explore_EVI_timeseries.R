@@ -40,10 +40,10 @@ read_GE_locs <- function(filename, header) {
 # Note this is very slow, since it reads in the whole raster for each time step, but for this reason also requires little memory. 
 # Probably should make one that first assembles a rasterbrick, then drills through it to get the time series. 
 extract_evi <- function(locs, geotif_folder, geotif_filename, geotif_numbers) {
-  r = raster(paste(geotif_filename, geotif_numbers[1], ".tif", sep=""))
+  r = raster(paste(geotif_folder, geotif_filename, geotif_numbers[1], ".tif", sep=""))
   evivals = extract(r, locs)
   for (i in 2:length(geotif_numbers)) {
-    r = raster(paste(geotif_filename, geotif_numbers[i], ".tif", sep=""))
+    r = raster(paste(geotif_folder, geotif_filename, geotif_numbers[i], ".tif", sep=""))
     evivals = rbind(evivals, extract(r, locs))
   }
   evivals[evivals==1] = NA 
@@ -57,14 +57,14 @@ extract_evi <- function(locs, geotif_folder, geotif_filename, geotif_numbers) {
 ## Then compare to the EVI response for the "high mortality" PIPO areas in S Sierras
 
 evi_average_by_polys <- function(polys, geotif_folder, geotif_filename, geotif_numbers) {
-  r = raster(paste(geotif_filename, geotif_numbers[1], ".tif", sep=""))
+  r = raster(paste(geotif_folder, geotif_filename, geotif_numbers[1], ".tif", sep=""))
   mr = mask(r, polys)
   z = getValues(mr)
   na.index = is.na(z)
   z[z==1] = NA 
   evi_mean = mean(z, na.rm=T)
   for (i in 2:length(geotif_numbers)) {
-    r = raster(paste(geotif_filename, geotif_numbers[i], ".tif", sep=""))
+    r = raster(paste(geotif_folder, geotif_filename, geotif_numbers[i], ".tif", sep=""))
     z = getValues(r)
     z[na.index] = NA
     z[z==1] = NA 
@@ -76,13 +76,13 @@ evi_average_by_polys <- function(polys, geotif_folder, geotif_filename, geotif_n
 }
 
 evi_cellvalues_by_polys <- function(polys, geotif_folder, geotif_filename, geotif_numbers) {
-  r = raster(paste(geotif_filename, geotif_numbers[1], ".tif", sep=""))
+  r = raster(paste(geotif_folder, geotif_filename, geotif_numbers[1], ".tif", sep=""))
   mr = mask(r, polys)
   z = getValues(mr)
   na.index = is.na(z)
   evi_vals = z[!na.index]
   for (i in 2:length(geotif_numbers)) {
-    r = raster(paste(geotif_filename, geotif_numbers[i], ".tif", sep=""))
+    r = raster(paste(geotif_folder, geotif_filename, geotif_numbers[i], ".tif", sep=""))
     z = getValues(r)
     z[na.index] = NA
     evi_vals = rbind(evi_vals, z)
