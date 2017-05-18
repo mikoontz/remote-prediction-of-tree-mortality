@@ -93,6 +93,8 @@ evi_cellvalues_by_polys <- function(polys, geotif_folder, geotif_filename, geoti
   return(evi_vals)
 }
 
+
+
 evi_PIPO = evi_average_by_polys(polys=v.PIPO, geotif_folder, geotif_filename, datestr)
 cols = rep("darkgreen", length(evi_PIPO))
 cols[dates$mon %in% c(1,2,3,4,5,11, 12)] = "white"
