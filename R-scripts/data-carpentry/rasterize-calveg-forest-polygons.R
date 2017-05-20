@@ -9,19 +9,53 @@ library(fasterize)
 library(gdalUtils)
 
 #Need these directories to output large intermediate data files, but they're ignored in .gitignore so they aren't populated to start, so create them if they don't exist
-dir.create("features/intermediate-products")
-dir.create("features/intermediate-products/CALVEG-shapefiles")
+intermProd <- "features/intermediate-products"
+CALVEG_shp <- paste(intermProd, "CALVEG-shapefiles", sep = "/")
+
+if (!dir.exists(intermProd)) {
+  dir.create(intermProd)
+  if (!dir.exists(CALVEG_shp)) {
+    dir.create(CALVEG_shp)
+  }
+}
 
 # Define conifer WHR types (http://frap.fire.ca.gov/projects/frap_veg/classification)
-con.whr.types <- c("SMC",  # Sierra mixed conifer
-                   "MCN",  # Mixed conifer
-                   "MHC",  # Mixed hardwood-conifer
-                   "SCN",  # Subalpine conifer
-                   "JPN",  # Jeffrey pine
-                   "PPN",  # Ponderosa pine
-                   "WFR",  # White fir
-                   "RFR",  # Red fir
-                   "DFR")  # Douglas-fir
+# con.whr.types <- c("SMC",  # Sierra mixed conifer
+#                    "MCN",  # Mixed conifer
+#                    "MHC",  # Mixed hardwood-conifer
+#                    "SCN",  # Subalpine conifer
+#                    "JPN",  # Jeffrey pine
+#                    "PPN",  # Ponderosa pine
+#                    "WFR",  # White fir
+#                    "RFR",  # Red fir
+#                    "DFR")  # Douglas-fir
+
+# Use just Ponderosa pine WHR Type
+con.whr.types <- "PPN"  
+
+# Filenames to change depending on how forest subset works
+north_SN_targetWHR_fileName <- "CALVEG_nsn_pipo"
+north_SN_nonTargetWHR_fileName <- "CALVEG_nsn_non_pipo"
+
+south_SN_targetWHR_fileName <- "CALVEG_ssn_pipo"
+south_SN_nonTargetWHR_fileName <- "CALVEG_ssn_non_pipo"
+
+filename <- "features/sierra-nevada-250m-calveg-pipo-forested-pixels-by-whr-type-no-mask-full-cell.tif"
+
+# Should new intermediate files be written at all? Or will we just read the
+# intermediate features from the script directly because the long time step
+# of creating them has already been done. Note this is a different question than
+# whether previously created files should be overwritten
+newFiles <- FALSE
+
+# Load project boundary and raster template
+sn <- shapefile("features/SierraEcoregion_TNC/SierraEcoregion_TNC.shp")
+raster_template <- raster("features/sierra-nevada-250m-evi-template.tif")
+
+if (newFiles) {
+# Should intermediate files be overwritten? Will take lots more time, but critical to
+# set to TRUE if any changes will be made to "update" a file with the same name
+overwrite <- FALSE
 
 # Read in CALVEG layers
 nsn <- st_read(dsn = "features/ExistingVegNorSierra2000_2014_v1.gdb", stringsAsFactors = FALSE) # From DY: I had to remove the slash after the filename for this to work
@@ -30,10 +64,6 @@ ssn <- st_read(dsn = "features/ExistingVegSouthSierra2000_2008_v1.gdb", stringsA
 # Keep only the relevant attributes
 nsn <- nsn[,c("WHRTYPE","WHRLIFEFORM")]
 ssn <- ssn[,c("WHRTYPE","WHRLIFEFORM")]
-
-# Load project boundary and raster template
-sn <- shapefile("features/SierraEcoregion_TNC/SierraEcoregion_TNC.shp")
-raster_template <- raster("features/sierra-nevada-250m-evi-template.tif")
 
 # Reproject CALVEG layers to projection of raster template
 nsn <- st_transform(nsn, crs = proj4string(raster_template))
@@ -48,21 +78,54 @@ nsn.nonconifer <- nsn[nsn$con_forest != 1, ]
 ssn.nonconifer <- ssn[ssn$con_forest != 1, ]
 
 # Write to disk in order to rasterize using gdal_rasterize in next step
-# But first need to delete the files if they already exist because st_write has some problems with overwriting
-do.call(file.remove, list(list.files("features/intermediate-products/CALVEG-shapefiles", full.names = TRUE)))
+objsToWrite <- list(nsn, nsn.nonconifer, ssn, ssn.nonconifer)
+filesToWrite <- c(paste(CALVEG_shp, north_SN_targetWHR_fileName, sep = "/"),
+                  paste(CALVEG_shp, north_SN_nonTargetWHR_fileName, sep = "/"),
+                  paste(CALVEG_shp, south_SN_targetWHR_fileName, sep = "/"),
+                  paste(CALVEG_shp, south_SN_nonTargetWHR_fileName, sep = "/"))
+names(objsToWrite) <- filesToWrite
 
-st_write(obj = nsn, 
-         dsn = "features/intermediate-products/CALVEG-shapefiles/CALVEG_nsn", 
-         driver = "ESRI Shapefile")
-st_write(obj = nsn.nonconifer, 
-         dsn = "features/intermediate-products/CALVEG-shapefiles/CALVEG_nsn_nonconifer", 
-         driver = "ESRI Shapefile")
-st_write(obj = ssn, 
-         dsn = "features/intermediate products/CALVEG-shapefiles/CALVEG_ssn", 
-         driver = "ESRI Shapefile")
-st_write(obj = ssn.nonconifer, 
-         dsn = "features/intermediate products/CALVEG-shapefiles/CALVEG_ssn_nonconifer", 
-         driver = "ESRI Shapefile")
+# If the file exists already, and you want to make a change, delete them and
+# then rewrite to avoid trouble with st_write() on already existing files
+
+if (overwrite)
+  lapply(filesToWrite, FUN = file.remove)
+
+if (any(sapply(filesToWrite, FUN = file.exists)) & !overwrite) {
+  print(filesToWrite)
+  stop("Some of these files exist, but overwrite was set to FALSE. If you've
+      made changes to the files and want to overwrite them, change the
+      overwrite variable to TRUE so that the st_write() functioon works. 
+      If you don't need to make any changes to the files, and can just read
+      them in from your local disk, set newFiles to FALSE.")
+}
+      
+if (!file.exists(paste(CALVEG_shp, north_SN_targetWHR_fileName, sep = "/"))) {
+  st_write(obj = nsn, 
+           dsn = paste(CALVEG_shp, north_SN_targetWHR_fileName, sep = "/"), 
+           driver = "ESRI Shapefile")
+}
+
+if (!file.exists(paste(CALVEG_shp, north_SN_nonTargetWHR_fileName, sep = "/"))) {
+  if (overwrite)
+    st_write(obj = nsn.nonconifer, 
+             dsn = paste(CALVEG_shp, north_SN_nonTargetWHR_fileName, sep = "/"), 
+             driver = "ESRI Shapefile")
+}
+
+if (!file.exists(paste(CALVEG_shp, south_SN_targetWHR_fileName, sep = "/"))) {
+  st_write(obj = ssn, 
+           dsn = paste(CALVEG_shp, south_SN_targetWHR_fileName, sep = "/"), 
+           driver = "ESRI Shapefile")
+}
+
+if (!file.exists(paste(CALVEG_shp, south_SN_nonTargetWHR_fileName, sep = "/"))) {
+  st_write(obj = ssn.nonconifer, 
+           dsn = paste(CALVEG_shp, south_SN_nonTargetWHR_fileName, sep = "/"), 
+           driver = "ESRI Shapefile")
+}
+
+} # End newFiles
 
 # Get resolution and extent of template raster (needed for rasterization)
 template.res <- res(raster_template)
@@ -72,7 +135,7 @@ template.extent <- extent(raster_template)[c(1,3,2,4)]
 nsn.raster <- gdal_rasterize("features/intermediate-products/CALVEG-shapefiles/CALVEG_nsn.shp","features/intermediate-products/calveg_conifer_nsn.tif",
                               a="con_forest", tr=template.res, te=template.extent,
                                l="CALVEG_nsn",a_nodata=NA,verbose=TRUE,output_Raster=TRUE)
-ssn.raster <- gdal_rasterize("features/intermediate products/CALVEG shapefiles/CALVEG_ssn.shp","features/intermediate-products/calveg_conifer_ssn.tif",
+ssn.raster <- gdal_rasterize("features/intermediate products/CALVEG-shapefiles/CALVEG_ssn.shp","features/intermediate-products/calveg_conifer_ssn.tif",
                              a="con_forest", tr=template.res, te=template.extent,
                              l="CALVEG_ssn",a_nodata=NA,verbose=TRUE,output_Raster=TRUE)
 
@@ -113,5 +176,5 @@ sn_con_forest_r[is.na(sn_con_forest_r)] <- 0 # Turn all masked pixels to 0
 plot(sn_con_forest_r)
 plot(sn, add = TRUE)
 
-filename <- "features/sierra-nevada-250m-calveg-conifer-forested-pixels-by-whr-type-no-mask-full-cell.tif"
+
 writeRaster(sn_con_forest_r, filename = filename, format="GTiff", overwrite=TRUE)
