@@ -67,7 +67,7 @@ nonMaskedFilename <- "features/sierra-nevada-250m-calveg-pipo-forested-pixels-by
 # intermediate features from the script directly because the long time step
 # of creating them has already been done. Note this is a different question than
 # whether previously created files should be overwritten
-newFiles <- TRUE
+newFiles <- FALSE
 
 # Load project boundary and raster template
 sn <- shapefile("features/SierraEcoregion_TNC/SierraEcoregion_TNC.shp")
