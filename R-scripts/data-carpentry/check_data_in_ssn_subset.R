@@ -26,4 +26,9 @@ target_cover_sub$cover80 = target_cover_sub >= 80
 plot(target_cover_sub)
 
 # Evaluate 
-        
+par(mfrow=c(1,2))
+plot(mort); plot(target_cover_sub$cover80) # doesn't look like much overlap 
+
+dim(mort)
+dim(target_cover_sub)
+
