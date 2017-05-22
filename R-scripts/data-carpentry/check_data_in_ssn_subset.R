@@ -25,10 +25,14 @@ plot(target_cover_sub)
 target_cover_sub$cover80 = target_cover_sub >= 80
 plot(target_cover_sub)
 
+dim(mort)
+dim(target_cover_sub) # these are at different resolutions
+mort_resamp = resample(mort, target_cover_sub$cover80)
+
 # Evaluate 
 par(mfrow=c(1,2))
-plot(mort); plot(target_cover_sub$cover80) # doesn't look like much overlap 
+plot(mort_resamp); plot(target_cover_sub$cover80) # doesn't look like much overlap 
 
-dim(mort)
-dim(target_cover_sub)
-
+mort_resamp$mort_bin = as.integer(mort_resamp[[1]]>50)
+z = overlay(mort_resamp$mort_bin, target_cover_sub[[1]], fun=function(x,y){return(x*y)})
+plot(z)
