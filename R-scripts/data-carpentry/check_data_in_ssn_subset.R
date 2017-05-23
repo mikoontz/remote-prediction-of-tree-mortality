@@ -21,31 +21,33 @@ proj4string(mort) == proj4string(target_cover)
 
 # Subset the target cover to this area 
 target_cover_sub = crop(target_cover, mort)
-#plot(target_cover_sub)
+plot(target_cover_sub, col=rev(viridis(10)))
 
 # Create a target cover layer for pixels with specified percent PIPO cover
 target_cover_sub$cover80 = target_cover_sub >= 80
-#plot(target_cover_sub)
-
-dim(mort)
-dim(target_cover_sub) # these are at different resolutions
-mort_resamp = resample(mort, target_cover_sub$cover80)
+plot(target_cover_sub, col=rev(viridis(10)))
 
 # Evaluate 
-#par(mfrow=c(1,2))
-#plot(mort_resamp); plot(target_cover_sub$cover80) # doesn't look like much overlap 
+par(mfrow=c(1,2))
+plot(mort); plot(target_cover_sub$cover80) 
 
-mort_resamp$mort_bin = as.integer(mort_resamp[[1]]>50)
+mort$mort_bin = as.integer(mort[[1]]>=80)
 target_cover_sub$cover80[target_cover_sub$cover80==0] = NA
-z = mask(mort_resamp[[1]], target_cover_sub$cover80)
-plot(z)
+z = mask(mort[[1]], target_cover_sub$cover80)
+plot(z, col=rev(viridis(10)))
 
 
 # plot mortality levels in pixels containing >=80% PIPO WHR
 plot(target_cover, main="PIPO WHR pct cover")
 plot(area_subset, add=T)
-plot(z, main="PIPO mortality in high-PIPO areas", col=rainbow(10))
-sum(getValues(z)>0, na.rm=T) # 1435 pixels in this ssn subset that are >80% PIPO and have some mortality 
-sum(getValues(z)>30, na.rm=T) # 350, pixels in this ssn subset that are >80% PIPO and have "high" mortality 
+plot(z, main="PIPO mortality in high-PIPO areas", col=rev(viridis(10)))
+mortvals = getValues(z)
+sum(!is.na(mortvals))
+sum(mortvals==0, na.rm=T) # 917 pixels in this ssn subset that are >80% PIPO and have some mortality 
+sum(mortvals>0 & mortvals <15, na.rm=T) # 415 pixels in this ssn subset that are >80% PIPO and have low mortality 
+sum(mortvals>=15 & mortvals<40, na.rm=T) # 675, pixels in this ssn subset that are >80% PIPO and have "medium" mortality 
+sum(getValues(z)>=40, na.rm=T) # 226, pixels in this ssn subset that are >80% PIPO and have "very high" mortality 
 
-# Conclusion: there is some variability in mortality in these forests, but maybe not as much mortality as I would have expected (few cells >50 trees per 250m pixel). Need to check with Derek that this looks reasonable when compared to the actual mortality data set and its range of mortality levels. 
+# Conclusion: Seems like good range of mortality levels in this area within the PIPO forest type. Total number of pixels is relatively small 2223, but within this number, there is good stratification across mortality levels. 
+
+# I think we can use this for testing statistical models to relate EVI to mortality and environmental factors. 
