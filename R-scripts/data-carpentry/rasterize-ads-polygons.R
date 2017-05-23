@@ -29,12 +29,12 @@ project.area <- shapefile("features/so-sierra-subset-mask/so-sierra-subset-mask.
 raster_template <- raster("features/sierra-nevada-250m-evi-template.tif")
 
 # Define resolutions
-agg.factor <- 5 #how much finer should the fine-resolution raster be, in each dimension. must be integer
+agg.factor <- 10 #how much finer should the fine-resolution raster be, in each dimension. must be integer
 
 # create coarese and fine res raster templates
 master.coarse <- mask(crop(raster_template,project.area),project.area)
 master.coarse <- master.coarse*0 # set all cells to 0 because we don't need the values that came with the template
-master.fine <- disaggregate(master.coarse,fact=20)
+master.fine <- disaggregate(master.coarse,fact=agg.factor)
 
 ## Extract the parameters needed to re-create the same grids from scratch
 master.fine.res <- res(master.fine)
