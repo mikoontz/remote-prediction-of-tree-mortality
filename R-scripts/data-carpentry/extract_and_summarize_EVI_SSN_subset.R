@@ -19,9 +19,11 @@ dates = strptime(date_codes, "%Y%m%d")
 # target cover raster 
 target_cover = raster("features/sierra_nevada_250m_calveg_pipo_forest-cover_whr_type.tif")
 # load one mortality layer as a template
-mort_template = raster(paste("features/ADS-rasterized/Y2015_sp122.tif", sep=""))
+mort_template = raster("features/ADS-rasterized/Y2015_sp122.tif")
 # subset the target cover raster to the mortality area 
 target_cover_sub = crop(target_cover, mort_template)
+# load one EVI layer as a template
+evi_template = raster(paste(geotif_folder, geotif_filename, date_codes[1], ".tif", sep=""))
 
 # Create a target cover layer for pixels with specified percent PIPO cover
 PIPO_cover_min = 80
@@ -29,28 +31,31 @@ target_pixels = target_cover_sub >= PIPO_cover_min
 target_pixels[target_pixels==0] = NA # set the non-target values to NA which is default value for masking
 #plot(target_pixels)
 
+# Reproject target mask to match the EVI geotiffs
+target_pixels <- projectRaster(target_pixels, evi_template)
+
 # Function to extract time series of EVI values for pixels identified in the target_pixels layer
 # extracts from the set of geotifs in geotif_folder with filename starting with geotif_filename and ending in an integer date code, as specified in geotif_date_codes.
 # Note this is very slow, since it reads in the whole raster for each time step, but for this reason also requires little memory. 
 # Probably should make one that first assembles a rasterbrick, then drills through it to get the time series. 
 extract_target_evi <- function(target_pixels, geotif_folder, geotif_filename, geotif_date_codes) {
   r = raster(paste(geotif_folder, geotif_filename, geotif_date_codes[1], ".tif", sep=""))
-  proj4string(r) == proj4string(target_pixels)
-  ## WTF? the coordinates of the geotif seem not to be in lat-lon
-  
-
   evi_crop = crop(r, extent(target_pixels))
   evi_mask = mask(evi_crop, target_pixels)
-    
+  evi_stack = stack(evi_mask)
   for (i in 2:length(geotif_date_codes)) {
     r = raster(paste(geotif_folder, geotif_filename, geotif_date_codes[i], ".tif", sep=""))
-    evivals = rbind(evivals, extract(r, locs))
+    evi_crop = crop(r, extent(target_pixels))
+    evi_mask = mask(evi_crop, target_pixels)
+    evi_stack = stack(evi_stack, evi_mask)
   }
-  evivals[evivals==1] = NA 
-  evivals = evivals/10000 # rescale to evi scale
-  return(evivals)
+  evi_stack = evi_stack/10000 # rescale to evi scale
+  return(evi_stack)
 }
 
+
+
+target_evi_stack = extract_target_evi(target_pixels, geotif_folder, geotif_filename, date_codes)
 
 
 ## Look at mean EVI response for all PIPO areas in S Sierras
