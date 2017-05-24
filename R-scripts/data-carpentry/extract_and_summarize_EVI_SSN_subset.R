@@ -58,109 +58,8 @@ extract_target_evi <- function(target_pixels, geotif_folder, geotif_filename, ge
 target_evi_stack = extract_target_evi(target_pixels, geotif_folder, geotif_filename, date_codes)
 
 
-## Look at mean EVI response for all PIPO areas in S Sierras
-## Then compare to the EVI response for the "high mortality" PIPO areas in S Sierras
-
-evi_average_by_polys <- function(polys, geotif_folder, geotif_filename, geotif_numbers) {
-  r = raster(paste(geotif_folder, geotif_filename, geotif_numbers[1], ".tif", sep=""))
-  mr = mask(r, polys)
-  z = getValues(mr)
-  na.index = is.na(z)
-  z[z==1] = NA 
-  evi_mean = mean(z, na.rm=T)
-  for (i in 2:length(geotif_numbers)) {
-    r = raster(paste(geotif_folder, geotif_filename, geotif_numbers[i], ".tif", sep=""))
-    z = getValues(r)
-    z[na.index] = NA
-    z[z==1] = NA 
-    evi_mean = c(evi_mean, mean(z, na.rm=T))
-    if (!i%%10) print(i)
-  }
-  evi_mean = evi_mean/10000  # rescale to evi scale
-  return(evi_mean)
-}
-
-evi_cellvalues_by_polys <- function(polys, geotif_folder, geotif_filename, geotif_numbers) {
-  r = raster(paste(geotif_folder, geotif_filename, geotif_numbers[1], ".tif", sep=""))
-  mr = mask(r, polys)
-  z = getValues(mr)
-  na.index = is.na(z)
-  evi_vals = z[!na.index]
-  for (i in 2:length(geotif_numbers)) {
-    r = raster(paste(geotif_folder, geotif_filename, geotif_numbers[i], ".tif", sep=""))
-    z = getValues(r)
-    z[na.index] = NA
-    evi_vals = rbind(evi_vals, z)
-    if (!i%%10) print(i)
-  }
-  evi_vals[evi_vals==1] = NA
-  evi_vals = evi_vals/10000  # rescale to evi scale
-  return(evi_vals)
-}
-
-#########################################################
-# Extract and look at EVI timeseries for some example locations
-
-# Get locations for Illillouette
-locs.ill = read_GE_locs("./features/example_locations/Illillouette_conif_forest_points.txt", header=FALSE)
-# Reproject to CRS of the geotifs
-r = raster(paste(geotif_folder, geotif_filename, datestr[1], ".tif", sep=""))
-locs.ill = SpatialPoints(project(locs.ill, proj4string(r)))
-# Check
-plot(r)
-plot(locs.ill, add=TRUE, col="red")
-
-
-# Extract EVI for the point locations
-evivals_ill = extract_evi(locs.ill, geotif_folder, geotif_filename, geotif_numbers = datestr)
-
-
-# Display evi for individual pixels
-par(mfrow=c(3, 4))
-for (i in 1:10) plot(evivals_ill[,i], type="l", lwd=2, col="darkgray", ylim=c(0.5, 0.9))
-# note half are blank -- don't fall into a "forested" pixel per GEE mask
-
-# Plot average for the 10 pixels
-plot(apply(evivals_ill, 1, mean, na.rm=T), type="l", col="darkgray", lwd=2)
-# Interestingly, these Illillouette high-elev forests show increasing green-ness through the summer. Could this be a signal of temperature limitation? 
-# But appears to be overall lower EVI in the drought years. 
-
-
-# Try comparing heuristically to points from lower-elevation confer forest stands
-
-locs.shaver = read_GE_locs("./features/example_locations/Shaver_Lake_conifer_forest_points.txt", header=FALSE)
-
-# Reproject to CRS of the geotifs
-r = raster(paste(geotif_folder, geotif_filename, datestr[1], ".tif", sep=""))
-locs.shaver = SpatialPoints(project(locs.shaver, proj4string(r)))
-
-# Check
-plot(r)
-plot(locs.shaver, add=TRUE, col="red")
-
-# Extract EVI
-evivals_shaver = extract_evi(locs.shaver, geotif_folder, geotif_filename, geotif_numbers = datestr)
-
-# Plot individual pixels
-par(mfrow=c(3, 4))
-for (i in 1:10) {
-  plot(evivals_shaver[,i], type="l", lwd=2, col="darkgray", ylim=c(0.5, 0.9))
-}
-
-# Plot average
-plot(apply(evivals_shaver, 1, mean, na.rm=T),  type="l", col="red")
-
-
-# Compare the means of the Illillouette to the Shaver Lake points
-
-par(mfrow=c(1,1))
-datecols = rep("white", length(dates)); datecols[which(dates$mon %in% c(6, 7, 8, 9))] = "cyan4"
-plot(apply(evivals_ill, 1, mean, na.rm=T), type="p", col=datecols, lwd=2, ylim = c(0.5, 0.85))
-datecols = rep("white", length(dates)); datecols[which(dates$mon %in% c(6, 7, 8, 9))] = "orange3"
-points(apply(evivals_shaver, 1, mean, na.rm=T),  col=datecols, lwd=2)
-
-# Both locations show substantial greening up from spring to fall. Clearly the higher elevation sites have lower mean EVI. Hard to tell from this small sample, but it looks like the higher-elevation sites also have lower amount of greening. 
-# But during 2015-16, Shaver Lake areas crashed to below Illillouette levels. 
+###################@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+# code carried over from other script below here. 
 
 # look at annual variation for Shaver Lake points
 plot.evi.slopes <- function(z, dates) {
@@ -198,9 +97,6 @@ for (i in 1:10) {
 }
 
 ## Yikes almost all these points are masked out for the entire time series!! 
-
-
-
 # Compare smoothed means across sites
 porthi_mean = apply(evivals_porthi, 1, mean, na.rm=T)
 portlo_mean = apply(evivals_portlo, 1, mean, na.rm=T)
@@ -212,46 +108,4 @@ lines(portlo_mean,  col="blue")
 
 plot(porthi_mean~portlo_mean); abline(0,1) # for these few pixels, "high" mortality pixels have less total variation than "low" mortality pixels
 
-
-
-#### Not updated from here on! Broken. (Andrew 5/17/17)
-
-
-## Next look at EVI values for all cells within some subsets of pixels 
-evi_PIPO = evi_average_by_polys(polys=v.PIPO, geotif_folder, geotif_filename, datestr)
-cols = rep("darkgreen", length(evi_PIPO))
-cols[dates$mon %in% c(1,2,3,4,5,11, 12)] = "white"
-plot(evi_PIPO, type="p", lwd=2, col=cols)
-x = 4:8
-plot(evi_PIPO[dates$year==100 & dates$mon %in% x]~dates$yday[dates$year==100 & dates$mon %in% x], type="l", ylim=c(0.6, 0.8), lwd=2, col="darkgray", ylab="EVI", xlab = "julian date", main="Growing season EVI for PIPO areas in S. Sierras")
-for (i in 100:112) {
-  lines(evi_PIPO[dates$year==i & dates$mon %in% x]~dates$yday[dates$year==i & dates$mon %in% x], lwd=2, col="cyan4")
-}
-for (i in 113:116) {
-  lines(evi_PIPO[dates$year==i & dates$mon %in% x]~dates$yday[dates$year==i & dates$mon %in% x], lwd=2, col="orange3")
-}
-legend("topleft", c("2000-2012", "2013-2016"), col=c("cyan4", "orange3"), lwd=c(2,2))
-
-evi_late = evi_PIPO[dates$yday==288]
-evi_diff = evi_late-evi_PIPO[dates$yday == 144]
-plot(evi_late)
-plot(evi_diff)
-
-# Q how to get the "less affected" parts of this? Separate by Derek's high mortality polygons (high = within those polygons, lower = elsewhere?)
-
-# Since 2013 was the year where the EVI really dropped from normal to drought levels, check what the variation was like among grid cells that year. 
-evi_PIPO_cells = evi_cellvalues_by_polys(polys=v.PIPO, geotif_folder, geotif_filename, datestr[dates$year==113])
-z = apply(evi_PIPO_cells, 2, f<-function(x){return(sum(!is.na(x)))})
-evi_PIPO_cells = evi_PIPO_cells[,z>12]
-dim(evi_PIPO_cells)
-x=(8:17)
-days = x*16
-plot(days, evi_PIPO_cells[x,1], type="l", ylim=c(0.5, 0.85), col="white")
-palette(tim.colors(100))
-for(i in 1:50) {
-  z = sample(1:ncol(evi_PIPO_cells), size=1)
-  cols = coef(lm(evi_PIPO_cells[x,z]~days))
-  lines(days, evi_PIPO_cells[x,z], col=max(c(30,cols[2]*16000+40)), lwd=2)
-  #abline(cols, col="lightgray")
-}
 
