@@ -12,8 +12,8 @@ tmp = dir(geotif_folder)
 filenames = tmp[grep(geotif_filename, tmp)]
 
 # Get date information from the geotif filenames
-datestr = sapply(filenames, substr, start=nchar(geotif_filename)+1, stop=nchar(geotif_filename)+8)
-dates = strptime(datestr, "%Y%m%d")
+date_codes = sapply(filenames, substr, start=nchar(geotif_filename)+1, stop=nchar(geotif_filename)+8) 
+dates = strptime(date_codes, "%Y%m%d")
 
 # Get the locations of the target pixels 
 # target cover raster 
@@ -26,17 +26,24 @@ target_cover_sub = crop(target_cover, mort_template)
 # Create a target cover layer for pixels with specified percent PIPO cover
 PIPO_cover_min = 80
 target_pixels = target_cover_sub >= PIPO_cover_min
-plot(target_pixels)
+target_pixels[target_pixels==0] = NA # set the non-target values to NA which is default value for masking
+#plot(target_pixels)
 
 # Function to extract time series of EVI values for pixels identified in the target_pixels layer
-# extracts from the set of geotifs in geotif_folder with filename starting with geotif_filename and ending in an integer (set of these integers is in geotif_numbers, per Mike Koontz's file naming system)
+# extracts from the set of geotifs in geotif_folder with filename starting with geotif_filename and ending in an integer date code, as specified in geotif_date_codes.
 # Note this is very slow, since it reads in the whole raster for each time step, but for this reason also requires little memory. 
 # Probably should make one that first assembles a rasterbrick, then drills through it to get the time series. 
-extract_evi <- function(locs, geotif_folder, geotif_filename, geotif_numbers) {
-  r = raster(paste(geotif_folder, geotif_filename, geotif_numbers[1], ".tif", sep=""))
-  evivals = extract(r, locs)
-  for (i in 2:length(geotif_numbers)) {
-    r = raster(paste(geotif_folder, geotif_filename, geotif_numbers[i], ".tif", sep=""))
+extract_target_evi <- function(target_pixels, geotif_folder, geotif_filename, geotif_date_codes) {
+  r = raster(paste(geotif_folder, geotif_filename, geotif_date_codes[1], ".tif", sep=""))
+  proj4string(r) == proj4string(target_pixels)
+  ## WTF? the coordinates of the geotif seem not to be in lat-lon
+  
+
+  evi_crop = crop(r, extent(target_pixels))
+  evi_mask = mask(evi_crop, target_pixels)
+    
+  for (i in 2:length(geotif_date_codes)) {
+    r = raster(paste(geotif_folder, geotif_filename, geotif_date_codes[i], ".tif", sep=""))
     evivals = rbind(evivals, extract(r, locs))
   }
   evivals[evivals==1] = NA 
