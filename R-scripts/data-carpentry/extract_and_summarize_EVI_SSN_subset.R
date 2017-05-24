@@ -1,8 +1,8 @@
-
-
-# Exploratory look at the MODIS geotifs that Mike extracted using Google Earth Engine
-
-library(sp); library(raster); library(rgdal); library(lattice); library(lme4)
+library(sp)
+library(raster)
+library(rgdal)
+library(lattice)
+library(lme4)
 
 # Enter the locations of files to work with 
 # geotifs are the MODIS EVI data that Mike K exported from Google Earth Engine, they are stored in a single folder (geotif_folder) and are all names consistently with the prefix geotif_filename and a date code. 
@@ -15,28 +15,21 @@ filenames = tmp[grep(geotif_filename, tmp)]
 datestr = sapply(filenames, substr, start=nchar(geotif_filename)+1, stop=nchar(geotif_filename)+8)
 dates = strptime(datestr, "%Y%m%d")
 
-# Set of functions for pulling out and summarizing time series from the geotifs
+# Get the locations of the target pixels 
+# target cover raster 
+target_cover = raster("features/sierra_nevada_250m_calveg_pipo_forest-cover_whr_type.tif")
+# load one mortality layer as a template
+mort_template = raster(paste("features/ADS-rasterized/Y2015_sp122.tif", sep=""))
+# subset the target cover raster to the mortality area 
+target_cover_sub = crop(target_cover, mort_template)
 
-# function to convert strings from Google Earth in format "37°17'23.2"N" to numeric decimal degrees
-degminsec2dig <- function(x) {
-  tmp = strsplit(x, split="°")
-  deg = as.numeric(tmp[[1]][1])
-  tmp2 = strsplit(tmp[[1]][2], split="'")
-  min = as.numeric(tmp2[[1]][1])
-  sec = as.numeric(strsplit(tmp2[[1]][2], "\"")[[1]][1])
-  return(deg + min/60 + sec/3600)
-}
+# Create a target cover layer for pixels with specified percent PIPO cover
+PIPO_cover_min = 80
+target_pixels = target_cover_sub >= PIPO_cover_min
+plot(target_pixels)
 
-# Function to read in locations from Google Earth and return coordinates
-# Assumes these are in 2-column format with Latitude in the first column, Lon in the second
-read_GE_locs <- function(filename, header) {
-  rawlocs = read.table(filename, header=header, stringsAsFactors = FALSE)
-  lat = sapply(rawlocs[,1], degminsec2dig)
-  lon = -sapply(rawlocs[,2], degminsec2dig)
-  return(as.matrix(cbind(lon, lat)))
-}
-
-# Function to extract time series of EVI values, for SpatialPoints identified in locs, from the set of geotifs in geotif_folder with filename starting with geotif_filename and ending in an integer (set of these integers is in geotif_numbers, per Mike Koontz's file naming system)
+# Function to extract time series of EVI values for pixels identified in the target_pixels layer
+# extracts from the set of geotifs in geotif_folder with filename starting with geotif_filename and ending in an integer (set of these integers is in geotif_numbers, per Mike Koontz's file naming system)
 # Note this is very slow, since it reads in the whole raster for each time step, but for this reason also requires little memory. 
 # Probably should make one that first assembles a rasterbrick, then drills through it to get the time series. 
 extract_evi <- function(locs, geotif_folder, geotif_filename, geotif_numbers) {
