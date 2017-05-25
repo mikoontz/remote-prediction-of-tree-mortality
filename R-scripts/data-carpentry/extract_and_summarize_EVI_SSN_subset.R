@@ -59,6 +59,41 @@ extract_target_evi <- function(target_pixels, geotif_folder, geotif_filename, ge
 
 target_evi_stack = extract_target_evi(target_pixels, geotif_folder, geotif_filename, date_codes)
 
+# turn the values into a matrix with pixels on the rows and times on the columns
+evi_mat = getValues(target_evi_stack)
+evi_target_index = which(!is.na(evi_mat[,1]))
+evi_mat = evi_mat[evi_target_index,]
+evi_mat[evi_mat==0.0001] = NA # replace the NA values
+colnames(evi_mat) = date_codes # columns indicate date of observation
+rownames(evi_mat) = evi_target_index # rows indicate location of pixel within source raster
+
+######################################################
+# Summarize the EVI time series
+
+# how many pixels have EVI time series? 
+n_pixels = nrow(evi_mat)
+missing_index = rep(0, n_pixels)
+for (i in 1:n_pixels) missing_index[i] = sum(!is.na(evi_mat[i,]))
+sum(missing_index>0)
+# how many "good" values are there per month? 
+obs_by_mon = rep(NA, 12)
+for (i in 0:11) obs_by_mon[i+1] = sum(!is.na(evi_mat[,dates$mon==i]))
+barplot(obs_by_mon, names.arg=as.character(1:12))
+# all values present June-Sept, almost all in May too
+
+# temporally mask out all months but May-Sept
+# and the the years after 2012 (i.e. the drought years)
+# Q should we include the "early" drought years of 2013-14?
+time_index = which(dates$mon %in% c(4,5,6,7,8) & dates$year<=112)
+plot(evi_mat[10,time_index])
+
+# Check how many pixels have EVI data at all 
+n_pixels = nrow(evi_mat)
+missing_index = rep(0, n_pixels)
+for (i in 1:n_pixels) missing_index[i] = sum(!is.na(evi_mat[i,]))
+sum(missing_index>0) # 1203 pixels -- about half -- contain EVI data
+
+
 
 ###################@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 # code carried over from other script below here. 
