@@ -31,8 +31,9 @@ target_pixels = target_cover_sub >= PIPO_cover_min
 target_pixels[target_pixels==0] = NA # set the non-target values to NA which is default value for masking
 #plot(target_pixels)
 
-# Reproject target mask to match the EVI geotiffs
+# Reproject target mask to match the EVI geotiffs (in Albers projection)
 target_pixels <- projectRaster(target_pixels, evi_template)
+# ISSUE- this changes the extent to the extent of the whole evi raster
 
 # Function to extract time series of EVI values for pixels identified in the target_pixels layer
 # extracts from the set of geotifs in geotif_folder with filename starting with geotif_filename and ending in an integer date code, as specified in geotif_date_codes.
@@ -40,13 +41,14 @@ target_pixels <- projectRaster(target_pixels, evi_template)
 # Probably should make one that first assembles a rasterbrick, then drills through it to get the time series. 
 extract_target_evi <- function(target_pixels, geotif_folder, geotif_filename, geotif_date_codes) {
   r = raster(paste(geotif_folder, geotif_filename, geotif_date_codes[1], ".tif", sep=""))
-  evi_crop = crop(r, extent(target_pixels))
-  evi_mask = mask(evi_crop, target_pixels)
+  #evi_crop = crop(r, extent(target_pixels))
+  #evi_mask = mask(evi_crop, target_pixels)
+  evi_mask = mask(r, target_pixels)
   evi_stack = stack(evi_mask)
   for (i in 2:length(geotif_date_codes)) {
     r = raster(paste(geotif_folder, geotif_filename, geotif_date_codes[i], ".tif", sep=""))
-    evi_crop = crop(r, extent(target_pixels))
-    evi_mask = mask(evi_crop, target_pixels)
+    #evi_crop = crop(r, extent(target_pixels))
+    evi_mask = mask(r, target_pixels)
     evi_stack = stack(evi_stack, evi_mask)
   }
   evi_stack = evi_stack/10000 # rescale to evi scale
