@@ -93,6 +93,36 @@ missing_index = rep(0, n_pixels)
 for (i in 1:n_pixels) missing_index[i] = sum(!is.na(evi_mat[i,]))
 sum(missing_index>0) # 1203 pixels -- about half -- contain EVI data
 
+# Further subset the data to areas that have EVI information
+evi_mat = evi_mat[missing_index>0,]
+
+### Make single-number summaries of EVI time series and store in data frame
+
+evi_summary = data.frame(cell_number=as.integer(rownames(evi_mat)))
+evi_summary$evi_mean = apply(evi_mat[,time_index], 1, mean, na.rm=T)
+evi_summary$evi_mayjun = apply(evi_mat[,dates$mon %in% c(4, 5) & dates$year <= 112], 1, mean, na.rm=T)
+evi_summary$evi_sept = apply(evi_mat[,dates$mon == 9 & dates$year <= 112], 1, mean, na.rm=T)
+evi_summary$seas_change = evi_summary$evi_sept - evi_summary$evi_mayjun
+evi_summary$seas_change_prop = (evi_summary$evi_sept/evi_summary$evi_may)-1
+
+# add trends
+linear_time = scale(as.integer(dates[1:length(dates)]-dates[1]))
+for (i in 1:nrow(evi_mat)) evi_summary$linear_trend[i] = coef(lm(evi_mat[i,time_index]~linear_time[time_index]))[2]
+
+# within-year variance
+evi_summary_
+
+# within-year CV
+
+# among-year variance
+
+# among-year CV
+
+# ratio of among- to within-year variance 
+
+
+par(mfrow=c(4,4), mar=rep(2, 4))
+for (i in 1:16) plot(evi_mat[i,]~linear_time, type="l", ylim=c(0.4, 0.9))
 
 
 ###################@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
