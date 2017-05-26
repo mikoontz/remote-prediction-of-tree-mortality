@@ -48,21 +48,23 @@ extract_target_evi <- function(target_pixels, geotif_folder, geotif_filename, ge
   r = raster(paste(geotif_folder, geotif_filename, geotif_date_codes[1], ".tif", sep=""))
   #evi_crop = crop(r, extent(target_pixels))
   #evi_mask = mask(evi_crop, target_pixels)
-  evi_mask = mask(r, target_pixels)
-  evi_stack = stack(evi_mask)
+  #evi_mask = mask(r, target_pixels)
+  evi_stack = stack(r)
   for (i in 2:length(geotif_date_codes)) {
     r = raster(paste(geotif_folder, geotif_filename, geotif_date_codes[i], ".tif", sep=""))
     #evi_crop = crop(r, extent(target_pixels))
-    evi_mask = mask(r, target_pixels)
-    evi_stack = stack(evi_stack, evi_mask)
+    #evi_mask = mask(r, target_pixels)
+    evi_stack = stack(evi_stack, r)
   }
-  evi_stack = evi_stack/10000 # rescale to evi scale
   return(evi_stack)
 }
 
 
 
 target_evi_stack = extract_target_evi(target_pixels, geotif_folder, geotif_filename, date_codes)
+n_times = nlayers(target_evi_stack)
+# apply mask to apply NA values to non-PIPO pixels 
+target_evi_stack = stackApply(target_evi_stack, fun=mask, mask=target_pixels, indices=1:n_times)
 
 # turn the values into a matrix with pixels on the rows and times on the columns
 evi_mat = getValues(target_evi_stack)
@@ -91,7 +93,7 @@ barplot(obs_by_mon, names.arg=as.character(1:12))
 # Q should we include the "early" drought years of 2013-14?
 startyear = 2000
 endyear = 2012
-time_index = which(dates$mon %in% c(4,5,6,7,8) & dates$year <= (endyear-1900) & dates$year >= (startyear-1900))
+time_index = as.integer(which(dates$mon %in% c(4,5,6,7,8) & dates$year <= (endyear-1900) & dates$year >= (startyear-1900)))
 plot(evi_mat[10,time_index])
 
 # Check how many pixels have EVI data at all 
@@ -105,6 +107,10 @@ evi_mat = evi_mat[missing_index>0,]
 
 ### Make single-number summaries of EVI time series and store in data frame
 
+# summarize rasterstack into rasters
+evi_stack_time_index = subset(evi_stack, time_index)
+
+# Summarize extracted values into data frame
 evi_summary = data.frame(cell_number=as.integer(rownames(evi_mat)))
 evi_summary$evi_mean = apply(evi_mat[,time_index], 1, mean, na.rm=T)
 evi_summary$evi_mayjun = apply(evi_mat[,dates$mon %in% c(4, 5) & dates$year <= (endyear-1900) & dates$year >= (startyear-1900) ], 1, mean, na.rm=T)
@@ -156,6 +162,6 @@ pairs(evi_summary)
 
 # look at random individual pixels
 par(mfrow=c(4,4), mar=rep(2, 4))
-for (i in 1:16) plot(evi_mat[sample(1:1203, 1),dates$mon %in% c(5,6,7,8,9)]~linear_time[dates$mon %in% c(5,6,7,8,9)], type="l", ylim=c(0.4, 0.9))
+for (i in 1:16) plot(evi_mat[sample(1:1203, 1),dates$mon %in% c(5,6,7,8,9)]~linear_time[dates$mon %in% c(5,6,7,8,9)], pch=16, cex=0.4, ylim=c(0.4, 0.9))
 
 
