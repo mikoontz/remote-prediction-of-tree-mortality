@@ -239,4 +239,3 @@ for (i in 113:116) lines(evi_mean_all[dates$year==i]~dates$yday[dates$year==i ],
 
 # linear model just to vaguely assess fit
 summary(lm(sqrt(mort)~evi_mayjun+seas_change_prop+within_year_var + among_year_var+ linear_trend+wet_dry_diff, data=evi_summary))
-# R2 around 0.15
