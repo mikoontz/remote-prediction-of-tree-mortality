@@ -85,7 +85,8 @@ rownames(evi_mat) = evi_target_index # rows indicate location of pixel within so
 # Q should we include the "early" drought years of 2013-14?
 startyear = 2000
 endyear = 2012
-time_index = as.integer(which(dates$mon %in% c(4,5,6,7,8) & dates$year <= (endyear-1900) & dates$year >= (startyear-1900)))
+evi_months = c(4,5,6,7,8) # which months -- note month numbers arew 0-11
+time_index = as.integer(which(dates$mon %in% evi_months & dates$year <= (endyear-1900) & dates$year >= (startyear-1900)))
 plot(evi_mat[10,time_index])
 
 # Check how many pixels have EVI data at all 
@@ -109,11 +110,11 @@ evi_summary$seas_change = evi_summary$evi_sept - evi_summary$evi_mayjun
 evi_summary$seas_change_prop = (evi_summary$evi_sept/evi_summary$evi_may)-1
 evi_summary$total_var = apply(evi_mat[,time_index], 1, var, na.rm=T)
 
-# wet-year vs dry-year difference 
-# define wet years as 2000, 2005, 2006 (could also include 2010, 2011)
+# wet-year vs dry-year difference in late-season EVI
+# define wet years as 2000, 2005, 2006, 2010, 2011
 # define dry years as 2002, 2007 ( could also include 2013 if that year's in the training data)
-wetmean = apply(evi_mat[,dates$year %in% c(100,105, 106) & dates$mon %in% c(7,8)], 1, mean, na.rm=T)
-drymean = apply(evi_mat[,dates$year %in% c(102,107) & dates$mon %in% c(7,8)], 1, mean, na.rm=T)
+wetmean = apply(evi_mat[,dates$year %in% c(100,105, 106, 2010, 2011) & dates$mon %in% c(7,8)], 1, mean, na.rm=T)
+drymean = apply(evi_mat[,dates$year %in% c(102,107, 113) & dates$mon %in% c(7,8)], 1, mean, na.rm=T)
 evi_summary$wet_dry_diff = drymean-wetmean
 evi_summary$wet_dry_propdiff = drymean/wetmean-1
 
@@ -164,21 +165,21 @@ evi_summary$mort = getValues(mort_masked)[as.integer(rownames(evi_mat))]
 pairs(evi_summary[evi_summary$among_year_var<0.002 & evi_summary$within_year_var<0.005,])
 
 x = as.matrix(cor(evi_summary[evi_summary$among_year_var<0.002 & evi_summary$within_year_var<0.005,], use="pairwise.complete"))
-heatmap(x)
-image.plot(x)
+heatmap(x, col=viridis(12))
+# Note when we include all years, among-year variance has strongest correlation with mortality (0.29)
+# When we include just the pre-drought years 2000-2012, high evi, especially in early season, is positively correlated with mortality. Difference in late-season EVI in dry versus wet years is also strongly associated with mortality (sites that showed a drop earlier tended to have more mortality later). 
 
 
-###
+### Run a simple model to check associations -- use tobit model in vgam library
 hist(evi_summary$mort)
-mean(evi_summary$mort, na.rm=T); var(evi_summary$mort, na.rm=T)
 m = vglm(mort~evi_mayjun+seas_change_prop+within_year_var + among_year_var+ linear_trend+wet_dry_diff, tobit, data=evi_summary, trace=TRUE)
 summary(m)
-plot(evi_summary$mort[!is.na(evi_summary$mort)]~fitted(m))
+plot(evi_summary$mort[!is.na(evi_summary$mort)]~predict(m, type="response"))
 abline(0,1)
 
 
-# Note when we include all years, among-year variance has strongest correlation with mortality (0.29)
-# When we include just the pre-drought years 2000-2012, high evi, especially in early season, is positively correlated with mortality. Difference in late-season EVI in dry versus wet years is also strongly associated with mortality (sites that showed a drop earlier tended to have more mortality later). 
+#####################
+# Make output plots
 
 plot_to_subregion <- function(values, index, target_pixels, target_cover_sub) { # index is the row numbers of the cells to plot, and indexes grid cells in the original evi_template and target_pixels rasters
   # values is the values to assign to these 
