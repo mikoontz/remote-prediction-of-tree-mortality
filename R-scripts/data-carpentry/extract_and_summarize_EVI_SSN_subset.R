@@ -2,9 +2,10 @@ library(sp)
 library(raster)
 library(rgdal)
 library(lattice)
-library(lme4)
-library(MASS)
 library(fields)
+library(VGAM)
+library(viridis)
+library(car)
 
 # Enter the locations of files to work with 
 # geotifs are the MODIS EVI data that Mike K exported from Google Earth Engine, they are stored in a single folder (geotif_folder) and are all names consistently with the prefix geotif_filename and a date code. 
@@ -172,8 +173,17 @@ heatmap(x, col=viridis(12))
 
 ### Run a simple model to check associations -- use tobit model in vgam library
 hist(evi_summary$mort)
+cols_to_standardize = c("evi_mayjun", "seas_change_prop", "within_year_var", "among_year_var", "linear_trend", "wet_dry_diff")
+for (i in 1:length(cols_to_standardize)) evi_summary[,cols_to_standardize[i]] = scale(evi_summary[,cols_to_standardize[i]])
+
+# check for correlation in explanatory variables
+vif(lm(mort~evi_mayjun+seas_change_prop+within_year_var + among_year_var+ linear_trend+wet_dry_diff + seas_change_prop:wet_dry_diff, data=evi_summary))
+cor(evi_summary[,cols_to_standardize])
+
+# fit model
 m = vglm(mort~evi_mayjun+seas_change_prop+within_year_var + among_year_var+ linear_trend+wet_dry_diff, tobit, data=evi_summary, trace=TRUE)
 summary(m)
+
 plot(evi_summary$mort[!is.na(evi_summary$mort)]~predict(m, type="response"))
 abline(0,1)
 
