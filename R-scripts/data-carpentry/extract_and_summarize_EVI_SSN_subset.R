@@ -177,7 +177,7 @@ cols_to_standardize = c("evi_mayjun", "seas_change_prop", "within_year_var", "am
 for (i in 1:length(cols_to_standardize)) evi_summary[,cols_to_standardize[i]] = scale(evi_summary[,cols_to_standardize[i]])
 
 # check for correlation in explanatory variables
-vif(lm(mort~evi_mayjun+seas_change_prop+within_year_var + among_year_var+ linear_trend+wet_dry_diff + seas_change_prop:wet_dry_diff, data=evi_summary))
+vif(lm(mort~evi_mayjun+seas_change_prop+within_year_var + among_year_var+ linear_trend+wet_dry_diff, data=evi_summary))
 cor(evi_summary[,cols_to_standardize])
 
 # fit model
@@ -191,7 +191,7 @@ abline(0,1)
 #####################
 # Make output plots
 
-plot_to_subregion <- function(values, index, target_pixels, target_cover_sub) { # index is the row numbers of the cells to plot, and indexes grid cells in the original evi_template and target_pixels rasters
+plot_EVI_to_subregion <- function(values, index, target_pixels, target_cover_sub) { # index is the row numbers of the cells to plot, and indexes grid cells in the original evi_template and target_pixels rasters
   # values is the values to assign to these 
   # it uses target_pixels as the template rasters, and target_cover_sub as the extent and coordinate system to display the plot in
   plotraster = target_pixels
@@ -201,15 +201,26 @@ plot_to_subregion <- function(values, index, target_pixels, target_cover_sub) { 
   plot(plotraster, col=viridis(12))
 }
 
+plot_to_subregion <- function(values, index, target_pixels, target_cover_sub) { # index is the row numbers of the cells to plot, and indexes grid cells in the original evi_template and target_pixels rasters
+  # values is the values to assign to these 
+  # it uses target_pixels as the template rasters, and target_cover_sub as the extent and coordinate system to display the plot in
+  plotraster = target_pixels
+  plotraster[index] = values
+  plotraster = projectRaster(plotraster, target_cover_sub)
+  plot(plotraster, col=viridis(12))
+}
+
+
 # plot some EVI summaries
 #par(mfrow=c(2,2))
-plot_to_subregion(evi_summary$evi_mayjun, evi_summary$cell_number, target_pixels, target_cover_sub); title("May-Jun mean EVI")
-plot_to_subregion(evi_summary$seas_change, evi_summary$cell_number, target_pixels, target_cover_sub); title("early- to late-season change in EVI")
-plot_to_subregion(evi_summary$linear_trend, evi_summary$cell_number, target_pixels, target_cover_sub); title("Linear trend 2000-2012")
-plot_to_subregion(evi_summary$wet_dry_diff, evi_summary$cell_number, target_pixels, target_cover_sub); title("Wet-to-dry-year change in EVI")
+plot_EVI_to_subregion(evi_summary$evi_mayjun, evi_summary$cell_number, target_pixels, target_cover_sub); title("May-Jun mean EVI")
+plot_EVI_to_subregion(evi_summary$seas_change, evi_summary$cell_number, target_pixels, target_cover_sub); title("early- to late-season change in EVI")
+plot_EVI_to_subregion(evi_summary$linear_trend, evi_summary$cell_number, target_pixels, target_cover_sub); title("Linear trend 2000-2012")
+plot_EVI_to_subregion(evi_summary$wet_dry_diff, evi_summary$cell_number, target_pixels, target_cover_sub); title("Wet-to-dry-year change in EVI")
 
-
+# observed and predicted mortality 
 plot_to_subregion(evi_summary$mort, evi_summary$cell_number, target_pixels, target_cover_sub)
+plot_to_subregion(predict(m, type="response"), evi_summary$cell_number[!is.na(evi_summary$mort)], target_pixels, target_cover_sub)
 
 # look at random individual pixels
 par(mfrow=c(4,4), mar=rep(2, 4))
@@ -220,5 +231,5 @@ evi_mean_all = apply(evi_mat[,dates$mon %in% c(5,6,7,8,9)], 2, mean, na.rm=T)
 plot(evi_mean_all~linear_time[dates$mon %in% c(5,6,7,8,9)])
 
 # linear model just to vaguely assess fit
-summary(lm(mort~evi_mayjun+seas_change_prop+within_year_var+wet_dry_diff, data=evi_summary))
-
+summary(lm(sqrt(mort)~evi_mayjun+seas_change_prop+within_year_var + among_year_var+ linear_trend+wet_dry_diff, data=evi_summary))
+# R2 around 0.15
