@@ -227,8 +227,15 @@ par(mfrow=c(4,4), mar=rep(2, 4))
 for (i in 1:16) plot(evi_mat[sample(1:1203, 1),dates$mon %in% c(5,6,7,8,9)]~linear_time[dates$mon %in% c(5,6,7,8,9)], pch=16, cex=0.4, ylim=c(0.4, 0.9))
 
 # all pixels averaged
-evi_mean_all = apply(evi_mat[,dates$mon %in% c(5,6,7,8,9)], 2, mean, na.rm=T)
-plot(evi_mean_all~linear_time[dates$mon %in% c(5,6,7,8,9)])
+evi_mean_all = apply(evi_mat, 2, mean, na.rm=T)
+# long time series
+plot(evi_mean_all~linear_time)
+# I'd say this shows that 2013 was low, clearly a drought year, but not out of the normal range for the rest of the years. So for model fitting, seems ok to go through 2013. The later years are drastically low, esp 2016. Will be interesting to see the rebound in 2017, if any. 
+# plotting the spatial average for each year. 
+plot(evi_mean_all[dates$year==100]~dates$yday[dates$year==100], type="l", lwd=2, col="cyan4", ylim=c(0.4, 0.9))
+for (i in 101:112) lines(evi_mean_all[dates$year==i]~dates$yday[dates$year==i], type="l", lwd=2, col="cyan4")
+for (i in 113:116) lines(evi_mean_all[dates$year==i]~dates$yday[dates$year==i ], type="l", lwd=2, col="orange3")
+# For this region, 2016 looks pretty flat -- mortality mainly happened in 2015 it appears.
 
 # linear model just to vaguely assess fit
 summary(lm(sqrt(mort)~evi_mayjun+seas_change_prop+within_year_var + among_year_var+ linear_trend+wet_dry_diff, data=evi_summary))
