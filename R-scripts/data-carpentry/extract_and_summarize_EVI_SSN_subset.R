@@ -1,3 +1,11 @@
+### This script: 
+## 1) creates a raster stack from the 16-day EVI files exported by Mike
+## 2) pulls the data values out of these to create a data matrix.
+## 3) generates summary statistics for the time series of EVI values for each pixel from 2000-2013.
+## 4) Does simple correlation and regression analysis to test which of these summary stats predicts mortality in 2015-16.
+## 5) displays summary stats and model predictions as a plotted raster.
+
+
 library(sp)
 library(raster)
 library(rgdal)
