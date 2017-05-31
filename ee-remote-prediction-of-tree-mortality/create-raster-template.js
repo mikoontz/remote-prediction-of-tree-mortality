@@ -17,6 +17,7 @@ Export.image.toDrive({image: evi,
                       fileNamePrefix: "sierra-nevada-250m-evi-template",
                       scale: 250,
                       region: sn,
+                      crs: 'EPSG:3310',
                       folder: "ee",
                       skipEmptyTiles: true
 });

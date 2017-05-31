@@ -28,6 +28,8 @@ albers.proj <- CRS("+proj=aea +lat_1=34 +lat_2=40.5 +lat_0=0 +lon_0=-120 +x_0=0 
 project.area <- shapefile("features/so-sierra-subset-mask/so-sierra-subset-mask.shp")
 raster_template <- raster("features/sierra-nevada-250m-evi-template.tif")
 
+project.area <- spTransform(project.area,albers.proj)
+
 # Define resolutions
 agg.factor <- 10 #how much finer should the fine-resolution raster be, in each dimension. must be integer
 
