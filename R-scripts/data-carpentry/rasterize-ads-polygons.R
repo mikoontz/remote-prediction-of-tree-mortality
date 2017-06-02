@@ -29,7 +29,7 @@ albers.proj <- CRS("+proj=aea +lat_1=34 +lat_2=40.5 +lat_0=0 +lon_0=-120 +x_0=0 
 project.area <- shapefile("features/so-sierra-subset-mask/so-sierra-subset-mask.shp")
 
 #for entire area
-project.area <- shapefile("features/SierraEcoregion_TNC/SierraEcoregion_TNC.shp")
+project.area <- shapefile("features/SierraEcoregion_Jepson/sierra_ecoregion.shp")
 
 
 raster_template <- raster("features/sierra-nevada-250m-evi-template.tif")
@@ -99,8 +99,8 @@ for(i in 1:length(year.set)){
   # Survey shapefiles should be in ESRI shapefile format, in the folder "Survey shapefiles" which is a subfolder of the working directory, with naming "ADS_2009.shp" etc.
   # There should also be flown area shapefiles (same format) in the same subfolder, one file for each year, with naming "Flown_area_2009.shp" etc.
   # Annual survey spatial data accessible here: http://www.fs.usda.gov/detail/r5/forest-grasslandhealth/?cid=fsbdev3_046696 (needs to be converted from geodatabases into shapefiles before opening in this script)
-  mort.polygon <- readOGR("features/ADS-shapefiles",mort.file)
-  flight.polygon <- readOGR("features/ADS-shapefiles",flight.file)
+  mort.polygon <- readOGR("features/ADS-shapefiles",mort.file,stringsAsFactors=FALSE)
+  flight.polygon <- readOGR("features/ADS-shapefiles",flight.file,stringsAsFactors=FALSE)
   
   # Reproject to projection of master raster
   mort.polygon <- spTransform(mort.polygon,master.proj)
@@ -133,7 +133,7 @@ for(i in 1:length(year.set)){
   # Eliminate polygons where total TPA == 1 (when TPA is less than 1 it is usually from large polygons with a small fixed number of trees, which are likely not "background" mortality)
   mort.polygon <- mort.polygon[mort.polygon$TPA.tot != 1,]
   # Eliminate polygons where the number of trees is 3 or less
-  mort.polygon <- mort.polygon[mort.polygon$NO_TREES1 > 3 , ]
+  mort.polygon <- mort.polygon[which(as.numeric(mort.polygon$NO_TREES1) > 3) , ]
   
   ## When multiple host species present, divide TPA by the number of hosts
   # Tally number of hosts listed
