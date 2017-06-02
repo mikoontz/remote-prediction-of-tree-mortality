@@ -1,3 +1,9 @@
+#### This script:
+## 1) defines a set of target vegetation types for analysis, using the CalVeg WHR types
+## 2) for each WHR type, selects polygons from the Sierra CalVeg tiles that are type
+## 3) rasterizes it to a resolution 100 times as fine as the EVI template raster, then aggregate back to template resolution to produce layer that has percent cover of the target WHR type. 
+
+
 library(sf)
 library(fasterize)
 library(raster)
