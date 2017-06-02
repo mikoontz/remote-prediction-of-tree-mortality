@@ -6,10 +6,9 @@ library(raster)
 library(viridis)
 
 # Load project boundary and raster template
-sn <- shapefile("features/SierraEcoregion_TNC/SierraEcoregion_TNC.shp")
 raster_template <- raster("features/sierra-nevada-250m-evi-template.tif")
 
-# Read in fire perimeters layers
+# Read in facts management polygons
 #st_layers(dsn = "features/FRAP-fire-perimeters/fire16_1.gdb") # what layers are aviailable in the geodatabase?
 facts <- st_read(dsn = "features/FACTS/CA_Activity_merged.shp",stringsAsFactors = FALSE)
 
@@ -26,13 +25,13 @@ facts$year_compl <- as.numeric(substr(facts$DATE_COMPL,1,4))
 # Disaggregate the raster_template to get a finer resolution
 raster_template_fine <- disaggregate(raster_template, fact = c(10, 10))
 
-# Rasterize the fire polygons, taking the most recent year if overlap
+# Rasterize the facts polygons, taking the most recent year if overlap
 facts_target_fine <- fasterize(sf = facts, field = "year_compl", raster = raster_template_fine, fun = "max")
 
-# Get the year of the most recent fire within each 250m cell by taking the max of the 100 mini-cells within it
+# Get the year of the most recent management within each 250m cell by taking the max of the 100 mini-cells within it
 facts_target_coarse <- aggregate(facts_target_fine, fact = c(10, 10), fun = max)
 
 plot(facts_target_coarse, col = viridis(10))
 
 # Export a GeoTiff for use with R
-writeRaster(facts_target_coarse, filename = "features/sierra_nevada_250m_most_recent_management.tif")
+writeRaster(facts_target_coarse, filename = "features/sierra_nevada_250m_most_recent_management.tif",overwrite=TRUE)

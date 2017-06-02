@@ -6,7 +6,6 @@ library(raster)
 library(viridis)
 
 # Load project boundary and raster template
-sn <- shapefile("features/SierraEcoregion_TNC/SierraEcoregion_TNC.shp")
 raster_template <- raster("features/sierra-nevada-250m-evi-template.tif")
 
 # Read in fire perimeters layers
@@ -33,4 +32,4 @@ perims_target_coarse <- aggregate(perims_target_fine, fact = c(10, 10), fun = ma
 plot(perims_target_coarse, col = viridis(10))
 
 # Export a GeoTiff for use with R
-writeRaster(perims_target_coarse, filename = "features/sierra_nevada_250m_most_recent_fire.tif")
+writeRaster(perims_target_coarse, filename = "features/sierra_nevada_250m_most_recent_fire.tif",overwrite=TRUE)
