@@ -3,7 +3,7 @@
 #-----------------------------------------------------#
 
 # Specify packages
-p <- c("sp","rgdal","raster","ndcf4","gdalUtils","spatial.tools","plyr","reshape2","lme4","ggplot2","rgeos","data.table")
+p <- c("sp","rgdal","raster","ncdf4","gdalUtils","spatial.tools","plyr","reshape2","lme4","ggplot2","rgeos","data.table")
 
 # If necessary: install/update packages
 # install.packages(p) # To install `ncdf4` it may be necessary to follow instructions here: http://cirrus.ucsd.edu/~pierce/ncdf/
