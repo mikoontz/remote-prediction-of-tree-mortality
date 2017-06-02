@@ -22,8 +22,10 @@ target_whr_types <- c("SMC",  # Sierra mixed conifer
 # Use just Ponderosa pine WHR Type
 #target_whr_types <- "PPN"  
 
-# Load project boundary and raster template
-sn <- shapefile("features/SierraEcoregion_TNC/SierraEcoregion_TNC.shp")
+# Load raster template
+# Raster template is an EVI layer exported from Earth Engine 
+# It is already masked to the target subregion (Jepson ecoregions)
+# CURRENTLY WAITING FOR FINAL VERSION FROM MIKE
 raster_template <- raster("features/sierra-nevada-250m-evi-template.tif")
 raster_template[] <- 0
 
