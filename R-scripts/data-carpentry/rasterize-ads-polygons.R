@@ -24,8 +24,14 @@ fn.bin <- function(x){ifelse(x >0,1,0)} # is a value over 0 or not?
 
 albers.proj <- CRS("+proj=aea +lat_1=34 +lat_2=40.5 +lat_0=0 +lon_0=-120 +x_0=0 +y_0=-4000000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs")
 
-# Load project boundary and raster template
+## Load project boundary and raster template
+#for restricted area
 project.area <- shapefile("features/so-sierra-subset-mask/so-sierra-subset-mask.shp")
+
+#for entire area
+project.area <- shapefile("features/SierraEcoregion_TNC/SierraEcoregion_TNC.shp")
+
+
 raster_template <- raster("features/sierra-nevada-250m-evi-template.tif")
 
 project.area <- spTransform(project.area,albers.proj)
