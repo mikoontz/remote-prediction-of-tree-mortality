@@ -159,10 +159,22 @@ for(i in 1:length(year.set)){
   
 
   # For each species
-  for(j in 1:length(species.set)){
+  for(j in 1:(length(species.set)+1)){
 
+    #in the last iteration through this loop, rasterize ALL mortality
+    if(j == length(species.set)+1) {
+      all.sp = TRUE
+    } else {
+      all.sp = FALSE
+    }
+    
+    
     # Define tree species set 
-    focal.sp <- species.set[[j]] 
+    if(all.sp) {
+      focal.sp <- -998
+    } else {
+      focal.sp <- species.set[[j]] 
+    }
     
     # if(focal.sp == 202) {
     #   next()
@@ -170,7 +182,11 @@ for(i in 1:length(year.set)){
     
     ## For each mortality polygon, convert polygon TPA to TPA of focal species only (i.e., set TPA 0 if polygon does not contain any of focal species)
     # See if focal species is present
-    n.host.match.focal <- (mort.polygon$HOST1 %in% focal.sp) + (mort.polygon$HOST2 %in% focal.sp) + (mort.polygon$HOST3 %in% focal.sp)
+    if(all.sp) {
+      n.host.match.focal <- n.host
+    } else {
+      n.host.match.focal <- (mort.polygon$HOST1 %in% focal.sp) + (mort.polygon$HOST2 %in% focal.sp) + (mort.polygon$HOST3 %in% focal.sp)
+    }
     
     if(sum(n.host.match.focal) == 0) {
       cat("\rNo mortality polygons found for species",focal.sp,", year",year)
@@ -218,7 +234,11 @@ for(i in 1:length(year.set)){
     
     # Stack rasters, name layers, and write to external file
     raster_stack <- stack(mort.flight)
-    spgrp.text <- sprintf("%03d",focal.sp)[1] # add leading zeros
+    if(all.sp) {
+      spgrp.text <- "ALL"
+    } else {
+      spgrp.text <- sprintf("%03d",focal.sp)[1] # add leading zeros
+    }
     
     layer.names <- paste("Y",year,".sp",spgrp.text,".",c("mort.tpa"),sep="")
     names(raster_stack) <- layer.names
