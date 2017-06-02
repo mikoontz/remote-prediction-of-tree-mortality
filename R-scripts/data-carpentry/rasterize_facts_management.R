@@ -1,3 +1,5 @@
+library(devtools)
+#devtools::install_github("ecohealthalliance/fasterize") 
 library(sf)
 library(fasterize)
 library(raster)
@@ -11,7 +13,7 @@ raster_template <- raster("features/sierra-nevada-250m-evi-template.tif")
 #st_layers(dsn = "features/FRAP-fire-perimeters/fire16_1.gdb") # what layers are aviailable in the geodatabase?
 facts <- st_read(dsn = "features/FACTS/CA_Activity_merged.shp",stringsAsFactors = FALSE)
 
-# there are a few features that cover the entire state. they have blanks in the SUID column. remove them
+# there are a few features that cover the entire state but contain no info. they have blanks in the SUID column. remove them
 facts <- facts[facts$SUID != "",]
 facts <- facts[!is.na(facts$SUID),]
 

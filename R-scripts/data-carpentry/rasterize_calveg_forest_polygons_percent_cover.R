@@ -1,3 +1,5 @@
+library(devtools)
+#devtools::install_github("ecohealthalliance/fasterize") 
 library(sf)
 library(fasterize)
 library(raster)
