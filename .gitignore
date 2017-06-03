@@ -14,3 +14,5 @@ features/FRAP-fire-perimeters/*
 features/FACTS/*
 ts/
 py-scripts/data-carpentry/.ipynb_checkpoints/*
+features/SierraEcoregion_Jepson/*
+
