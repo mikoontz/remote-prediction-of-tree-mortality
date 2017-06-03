@@ -2,75 +2,76 @@ library(viridis)
 library(raster)
 library(sf)
 
-sn <- shapefile("features/SierraEcoregion_TNC/SierraEcoregion_TNC.shp")
-sn <- st_read("features/SierraEcoregion_Jepson/")
+jp <- st_read("features/jepcodes-v7.kml")
 
+# The KML attributes to extract
 kml_attributes <- c("FID", "JEPCODE", "JEP_REG", "AREA_ACRES", "AREA_SQ_MI")
 
-
+# Helper function to extract the first list element
 first <- function(x) {
   x[[1]]
 }
 
+# Use regular expressions to find the values for the different kml attributes
+# that are buried in the HTML within the $Description column of the simple
+# feature spatial object
+
 for (i in seq_along(kml_attributes)) {
-  for (j in seq_along(row.names(sn))) {
+  for (j in seq_along(row.names(jp))) {
     
+    # Starting character within the $Description column for a particular
+    # kml attribute
     start_char <-
       kml_attributes[i] %>%
       paste0("</td> <td>") %>%
-      gregexpr(text = sn$Description[j]) %>%
+      gregexpr(text = jp$Description[j]) %>%
       first() %>%
       sum(attr(., which = "match.length"))
-    
+
+    # Stopping character within the $Description column for a particular
+    # kml attribute
     stop_char <- 
       kml_attributes[i] %>%
       paste0("</td> <td>[A-Z|a-z| |0-9|.]+</td>") %>%
-      gregexpr(text = sn$Description[j]) %>%
+      gregexpr(text = jp$Description[j]) %>%
       first() %>%
       sum(attr(., which = "match.length")) %>%
-      '-'(6)
+      '-'(6) 
+    # Note we subtract 6 characters because we searched with "</td>"
+    # at the end
     
-    sn[j, kml_attributes[i]] <- substr(x = sn$Description[j], start = start_char, stop = stop_char)
+    # Assign a new column with the extracted data
+    jp[j, kml_attributes[i]] <- substr(x = jp$Description[j], start = start_char, stop = stop_char)
   }
 }
 
-tail(sn, 5)
-plot(sn$geometry)
-start_char <- gregexpr(pattern = paste0(kml_attributes[i], "</td> <td>"), text = sn$Description[j])[[1]]
-attr_length <- attr(start_char, which = "match.length")
-start_char <- start_char + attr_length
+# Delete the old columns to reduce clutter
+jp$Name <- NULL
+jp$Description <- NULL
 
-gregexpr(pattern = paste0(kml_attributes[i], "</td> <td>[A-Z|a-z| |0-9]+</td>"), text = sn$Description[j])[[1]]
+# Convert some jp columns to numeric
+jp$AREA_ACRES <- as.numeric(jp$AREA_ACRES)
+jp$AREA_SQ_MI <- as.numeric(jp$AREA_SQ_MI)
 
-gregexpr(pattern = "JEPCODE</td> <td>", text = sn$Description[1])
-gregexpr(pattern = "JEPCODE</td> <td>[A-Z|a-z| |0-9]+</td>", text = sn$Description[1])
+# These are the Jepson Regions that we will call "The Sierra Nevada"
+sn_districts <- c("Central High Sierra Nevada District", 
+                  "Central Sierra Nevada Foothills District", 
+                  "Northern Sierra Nevada Foothills District", 
+                  "Southern Sierra Nevada Foothills District", 
+                  "Northern High Sierra Nevada District", 
+                  "Southern High Sierra Nevada District", 
+                  "Tehachapi Mountain Area Subregion")
 
-gregexpr(pattern = "JEP_REG</td> <td>", text = sn$Description[1])
-gregexpr(pattern = "JEP_REG</td> <td>[A-Z|a-z| |0-9]+</td>", text = sn$Description[1])
+sn <- jp[jp$JEP_REG %in% sn_districts, ]
 
-gregexpr(pattern = "FID</td> <td>", text = sn$Description[1])
-gregexpr(pattern = "FID</td> <td>[A-Z|a-z| |0-9]+</td>", text = sn$Description[1])
+sn %<>%
+  st_zm(drop = TRUE) %>%
+  as("Spatial") %>%
+  aggregate() %>%
+  st_as_sf()
 
-gregexpr(pattern = "AREA_ACRES</td> <td>", text = sn$Description[1])
-gregexpr(pattern = "AREA_ACRES</td> <td>[A-Z|a-z| |0-9|.]+</td>", text = sn$Description[1])
+st_write(obj = sn, dsn = "features/SierraEcoregion_Jepson/SierraEcoregion_Jepson.shp")
+st_write(obj = sn, dsn = "features/SierraEcoregion_Jepson.kml", driver = "KML")
 
-gregexpr(pattern = "AREA_SQ_MI</td> <td>", text = sn$Description[1])
-gregexpr(pattern = "AREA_SQ_MI</td> <td>[A-Z|a-z| |0-9|.]+</td>", text = sn$Description[1])
-
-as.character(sn$Description[1])
-?gregexpr
-str(sn)
-sn$Description[1]
-evi <- raster("features/sierra-nevada-250m-evi-template.tif")
-  
-plot(sn$geometry)
-plot(evi)
-plot(sn, add = TRUE)
-
-m_evi <- mask(evi, sn)
-plot(m_evi)
-
-writeRaster(m_evi, filename="features/sierra-nevada-250m-evi-template.tif", format="GTiff", overwrite=TRUE)
-
-test <- raster("features/sierra-nevada-250m-evi-template.tif")
-plot(test)
+# Next step is to upload the sn as a kml to a Fusion Table, use it to clip a 
+# MODIS EVI image, then export that clipped EVI image back here for proper masking
