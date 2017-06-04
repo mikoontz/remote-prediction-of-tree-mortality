@@ -96,7 +96,7 @@ for(i in 1:length(year.set)){
   flight.file <- paste("Flown_area_",year,sep="")
   
   ## Open corresponding shapefiles
-  # Survey shapefiles should be in ESRI shapefile format, in the folder "Survey shapefiles" which is a subfolder of the working directory, with naming "ADS_2009.shp" etc.
+  # Survey shapefiles should be in ESRI shapefile format, in the folder "ADS-shapefiles" which is a subfolder of the working directory, with naming "ADS_2009.shp" etc.
   # There should also be flown area shapefiles (same format) in the same subfolder, one file for each year, with naming "Flown_area_2009.shp" etc.
   # Annual survey spatial data accessible here: http://www.fs.usda.gov/detail/r5/forest-grasslandhealth/?cid=fsbdev3_046696 (needs to be converted from geodatabases into shapefiles before opening in this script)
   mort.polygon <- readOGR("features/ADS-shapefiles",mort.file,stringsAsFactors=FALSE)
