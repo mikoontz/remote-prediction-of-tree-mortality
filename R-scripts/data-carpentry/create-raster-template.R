@@ -70,7 +70,12 @@ sn %<>%
   aggregate() %>%
   st_as_sf()
 
+# Create a space for the local version of the Sierra Nevada delineation polygon
 dir.create("features/SierraEcoregion_Jepson")
 sn_albers <- st_transform(x = sn, crs = "+init=epsg:3310")
+
+# Local shapefile should be written in California Albers projection for future masking
 st_write(obj = sn_albers, dsn = "features/SierraEcoregion_Jepson/SierraEcoregion_Jepson.shp")
+
+# File to be uploaded to Google Earth Engine must be in .kml format, and thus in EPSG:4326 projection
 st_write(obj = sn, dsn = "features/SierraEcoregion_Jepson.kml", driver = "KML")
