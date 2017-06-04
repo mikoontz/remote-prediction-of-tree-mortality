@@ -70,8 +70,7 @@ sn %<>%
   aggregate() %>%
   st_as_sf()
 
-st_write(obj = sn, dsn = "features/SierraEcoregion_Jepson/SierraEcoregion_Jepson.shp")
+dir.create("features/SierraEcoregion_Jepson")
+sn_albers <- st_transform(x = sn, crs = "+init=epsg:3310")
+st_write(obj = sn_albers, dsn = "features/SierraEcoregion_Jepson/SierraEcoregion_Jepson.shp")
 st_write(obj = sn, dsn = "features/SierraEcoregion_Jepson.kml", driver = "KML")
-
-# Next step is to upload the sn as a kml to a Fusion Table, use it to clip a 
-# MODIS EVI image, then export that clipped EVI image back here for proper masking
