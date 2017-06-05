@@ -18,6 +18,13 @@ facts <- facts[!is.na(facts$SUID),]
 # Reproject to projection of raster template
 facts <- st_transform(facts, crs = proj4string(raster_template))
 
+# What management types are there?
+sort(unique(facts$ACTIVITY))
+
+## Exclude certain management types from FACTS management -- for now just wildfire
+mgmt.exclude <- c("Wildfire - Fuels Benefit","Wildfire - Human Ignition","Wildfire - Natural Ignition","Wildland Fire Use")
+facts <- facts[!(facts$ACTIVITY %in% mgmt.exclude),]
+
 # get the year out of the date
 facts$year_compl <- as.numeric(substr(facts$DATE_COMPL,1,4))
 
