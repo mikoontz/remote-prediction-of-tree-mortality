@@ -73,7 +73,7 @@ waterraster.coarse <- aggregate(water.raster,agg.factor,fun=sum,na.rm=TRUE)
 propwater <- waterraster.coarse/(agg.factor^2) # calculate proportion as number of fine cells that were water divided by total number of cells
 propland <- 1-propwater # calculate the proportion that is land
 propland[is.na(propland)] <- 1 # if the value was NA, that means there was no water there, so it was completely land
-propland[propland < .5] <- NA # if it's more than half water, set it to NA so that we do not use those cells as data points.
+propland[propland < .8] <- NA # if it's more than 20% water, set it to NA so that we do not use those cells as data points.
 
 
 
