@@ -9,7 +9,6 @@ library(viridis)
 raster_template <- raster("features/sierra-nevada-250m-evi-template.tif")
 
 # Read in facts management polygons
-#st_layers(dsn = "features/FRAP-fire-perimeters/fire16_1.gdb") # what layers are aviailable in the geodatabase?
 facts <- st_read(dsn = "features/FACTS/CA_Activity_merged.shp",stringsAsFactors = FALSE)
 
 # there are a few features that cover the entire state but contain no info. they have blanks in the SUID column. remove them
