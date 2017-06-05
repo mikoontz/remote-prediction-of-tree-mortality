@@ -29,7 +29,7 @@ albers.proj <- CRS("+proj=aea +lat_1=34 +lat_2=40.5 +lat_0=0 +lon_0=-120 +x_0=0 
 project.area <- shapefile("features/so-sierra-subset-mask/so-sierra-subset-mask.shp")
 
 #for entire area
-project.area <- shapefile("features/SierraEcoregion_Jepson/sierra_ecoregion.shp")
+project.area <- shapefile("features/SierraEcoregion_Jepson/SierraEcoregion_Jepson.shp")
 
 
 raster_template <- raster("features/sierra-nevada-250m-evi-template.tif")
