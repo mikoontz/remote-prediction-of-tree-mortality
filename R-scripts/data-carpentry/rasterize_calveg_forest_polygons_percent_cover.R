@@ -27,7 +27,7 @@ target_whr_types <- c("SMC",  # Sierra mixed conifer
 # It is already masked to the target subregion (Jepson ecoregions)
 # CURRENTLY WAITING FOR FINAL VERSION FROM MIKE
 raster_template <- raster("features/sierra-nevada-250m-evi-template.tif")
-raster_template[] <- 0
+#raster_template[] <- 0
 
 # Read in CALVEG layers
 nsn <- st_read(dsn = "features/ExistingVegNorSierra2000_2014_v1.gdb", stringsAsFactors = FALSE)
@@ -49,7 +49,7 @@ for (i in 1:n_whr_types) {
   nsn_tmp = nsn
   ssn_tmp = ssn
   nsn_tmp$target_forest <- ifelse(test = nsn_tmp$WHRTYPE == target_whr_types[i], yes = 1, no = 0)
-  ssn_tmp$target_forest <- ifelse(test = ssn_tmp$WHRTYPE %in% target_whr_types, yes = 1, no = 0)
+  ssn_tmp$target_forest <- ifelse(test = ssn_tmp$WHRTYPE == target_whr_types[i], yes = 1, no = 0)
 
   # Disaggregate the raster_template to get a finer resolution
   raster_template_fine <- disaggregate(raster_template, fact = c(10, 10))
@@ -67,6 +67,6 @@ for (i in 1:n_whr_types) {
   #plot(target_cover, col = viridis(10))
 
   # Export a GeoTiff to use to construct vegetation type masks within target region
-  writeRaster(target_cover, filename = paste("features/sierra_nevada_250m_calveg_cover_whr_type_", target_whr_types[i], ".tif", sep=""))
+  writeRaster(target_cover, filename = paste("features/calveg-pct-cover-rasters/sierra_nevada_250m_calveg_cover_whr_type_", target_whr_types[i], ".tif", sep=""))
 
 }
