@@ -32,7 +32,21 @@ dates = strptime(date_codes, "%Y%m%d")
 # Get the locations of the target pixels 
 # EVI template raster 
 evi_template = raster("features/sierra-nevada-250m-evi-template.tif")
-#evi_template = raster("features/ee-sn_jep_modis_ts_quality_mask_epsg3310/sn_jep_modis_ts_quality_mask_epsg3310_000_20000218.tif")
+
+# check that template includes the same region as the first evi data raster
+evi_000 = raster("features/ee-sn_jep_modis_ts_quality_mask_epsg3310/sn_jep_modis_ts_quality_mask_epsg3310_000_20000218.tif")
+sn = shapefile("features/SierraEcoregion_Jepson/SierraEcoregion_Jepson.shp")
+sn = spTransform(sn, albers.proj)
+cells_in_region = extract(evi_template, sn, cellnumbers=T)[[1]]
+vals_outside_region = getValues(evi_template)[-cells_in_region[,1]]
+length(vals_outside_region); sum(vals_outside_region)
+unique(vals_outside_region)
+vals_outside_region2 = getValues(evi_000)[-cells_in_region[,1]]
+length(vals_outside_region2); sum(vals_outside_region2>0)
+par(mfrow=c(1, 2)); plot(evi_template); plot(evi_000)
+unique(vals_outside_region2)
+# results: almost identical, but there are a few cells that "leak out" of the sierra nevada polygon presumably as a result of reprojection. 
+
 # load one mortality layer as a template
 mort_template = raster("features/ADS-rasterized/Y2015_sp122.tif")
 mort_2015_2016 = raster("features/ADS-rasterized/Y2015_sp122.tif") + raster("features/ADS-rasterized/Y2016_sp122.tif")
