@@ -34,19 +34,19 @@ dates = strptime(date_codes, "%Y%m%d")
 evi_template = raster("features/sierra-nevada-250m-evi-template.tif")
 
 # check that template includes the same region as the first evi data raster
-evi_000 = raster("features/ee-sn_jep_modis_ts_quality_mask_epsg3310/sn_jep_modis_ts_quality_mask_epsg3310_000_20000218.tif")
-sn = shapefile("features/SierraEcoregion_Jepson/SierraEcoregion_Jepson.shp")
-sn = spTransform(sn, albers.proj)
-cells_in_region = extract(evi_template, sn, cellnumbers=T)[[1]]
-vals_outside_region = getValues(evi_template)[-cells_in_region[,1]]
-length(vals_outside_region); sum(vals_outside_region)
-unique(vals_outside_region)
-vals_outside_region2 = getValues(evi_000)[-cells_in_region[,1]]
-length(vals_outside_region2); sum(vals_outside_region2>0)
-par(mfrow=c(1, 2)); plot(evi_template); plot(evi_000)
-unique(vals_outside_region2)
+#evi_000 = raster("features/ee-sn_jep_modis_ts_quality_mask_epsg3310/sn_jep_modis_ts_quality_mask_epsg3310_000_20000218.tif")
+#sn = shapefile("features/SierraEcoregion_Jepson/SierraEcoregion_Jepson.shp")
+#sn = spTransform(sn, albers.proj)
+#cells_in_region = extract(evi_template, sn, cellnumbers=T)[[1]]
+#vals_outside_region = getValues(evi_template)[-cells_in_region[,1]]
+#length(vals_outside_region); sum(vals_outside_region)
+#unique(vals_outside_region)
+#vals_outside_region2 = getValues(evi_000)[-cells_in_region[,1]]
+#length(vals_outside_region2); sum(vals_outside_region2>0)
+#par(mfrow=c(1, 2)); plot(evi_template); plot(evi_000)
+#unique(vals_outside_region2)
 # results: almost identical, but there are a few cells that "leak out" of the sierra nevada polygon presumably as a result of reprojection. 
-rm(evi_000)
+#rm(evi_000)
 
 # load one mortality layer as a template
 mort_template = raster("features/ADS-rasterized/Y2015_sp122.tif")
@@ -128,7 +128,7 @@ object.size(evi_mat)
 # Rescale
 evi_mat = evi_mat/10000 # rescale to standard EVI values
 
-
+save(evi_mat, file="features/working-files/evi_data_matrix_jepson_PPN.Rdata")
 
 
 
@@ -157,25 +157,25 @@ plot(evi_mat[100,time_index])
 evi_summary = data.frame(cell_number=as.integer(rownames(evi_mat)))
 evi_summary$evi_mean = apply(evi_mat[,time_index], 1, mean, na.rm=T)
 evi_summary$evi_mayjun = apply(evi_mat[,dates$mon %in% c(4, 5) & dates$year <= (endyear-1900) & dates$year >= (startyear-1900) ], 1, mean, na.rm=T)
-evi_summary$evi_augsept = apply(evi_mat[,dates$mon %in% c(8,9) & dates$year <= (endyear-1900) & dates$year >= (startyear-1900) ], 1, mean, na.rm=T)
-evi_summary$seas_change = evi_summary$evi_sept - evi_summary$evi_mayjun
-evi_summary$seas_change_prop = (evi_summary$evi_sept/evi_summary$evi_may)-1
+evi_summary$evi_augsept = apply(evi_mat[,dates$mon %in% c(7,8) & dates$year <= (endyear-1900) & dates$year >= (startyear-1900) ], 1, mean, na.rm=T)
+evi_summary$seas_change = evi_summary$evi_augsept - evi_summary$evi_mayjun
+evi_summary$seas_change_prop = (evi_summary$evi_augsept/evi_summary$evi_mayjun)-1
 evi_summary$total_var = apply(evi_mat[,time_index], 1, var, na.rm=T)
 
 # wet-year vs dry-year difference in late-season EVI
 # define wet years as 2000, 2005, 2006, 2010, 2011
 # define dry years as 2002, 2007 ( could also include 2013 if that year's in the training data)
 wetmean = apply(evi_mat[,dates$year %in% c(100,105, 106, 2010, 2011) & dates$mon %in% c(7,8)], 1, mean, na.rm=T)
-drymean = apply(evi_mat[,dates$year %in% c(102,107, 113) & dates$mon %in% c(7,8)], 1, mean, na.rm=T)
+drymean = apply(evi_mat[,dates$year %in% c(102,107) & dates$mon %in% c(7,8)], 1, mean, na.rm=T) # Q whether to include 2013 here
 evi_summary$wet_dry_diff = drymean-wetmean
 evi_summary$wet_dry_propdiff = drymean/wetmean-1
 
 # add trends
 linear_time = scale(as.integer(dates[1:length(dates)]-dates[1]))
-for (i in 1:nrow(evi_mat)) evi_summary$linear_trend[i] = coef(lm(evi_mat[i,time_index]~linear_time[time_index]))[2]
+# Note this is slow with many pixels and should be parallelized! 
+#for (i in 1:nrow(evi_mat)) evi_summary$linear_trend[i] = coef(lm(evi_mat[i,time_index]~linear_time[time_index]))[2]
 
-
-# within-year variance
+# partition variance
 years = (startyear-1900):(endyear-1900)
 ncells = nrow(evi_mat)
 annual.mean = matrix(NA, nrow=ncells, ncol=length(years))
@@ -198,7 +198,7 @@ evi_summary$among_year_var = apply(annual.mean, 1, var, na.rm=T)
 evi_summary$among_to_within_ratio = evi_summary$among_year_var / evi_summary$within_year_var
 
 ### Quick look 
-#pairs(evi_summary[evi_summary$among_year_var<0.002 & evi_summary$within_year_var<0.005,])
+pairs(evi_summary[evi_summary$among_year_var<0.002 & evi_summary$within_year_var<0.005,])
 # higher within-year variance associated with lower EVI. Maybe reflecting herbaceous cover? Higher among-year variance associated with linear trends (both positive and negative.)
 
 
