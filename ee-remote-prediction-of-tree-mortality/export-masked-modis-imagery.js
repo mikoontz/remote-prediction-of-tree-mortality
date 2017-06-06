@@ -10,7 +10,7 @@ var sn = ee.FeatureCollection("ft:1VX1Uny1uAIYdgfuvsjLJVw1wMkhmSZq7fCQ0gowV"),
 // Args: img, an image
 // Returns: an image with some "masking" which is really just filling all bands in with 1
 
-var quality_forest_mask = function(img) {
+var quality_mask = function(img) {
   var date = ee.Date(img.get('system:time_start')).format("YYYYMMdd");
   date = ee.Number.parse(date);
   
