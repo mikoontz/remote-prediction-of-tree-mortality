@@ -64,15 +64,14 @@ extract(target_albers, testpoint_alb, cellnumbers=T)
 # OK, returns the same cell index for all rasters. 
 
 
-# Function to extract time series of EVI values for pixels identified in the target_pixels layer
-# extracts from the set of geotifs in geotif_folder with filename starting with geotif_filename and ending in an integer date code, as specified in geotif_date_codes.
-# Note this is very slow, since it reads in the whole raster for each time step, but for this reason also requires little memory. 
-# Probably should make one that first assembles a rasterbrick, then drills through it to get the time series. 
-stack_evi_layers <- function(target_pixels, geotif_folder, geotif_filename, geotif_date_codes) {
-  r = raster(paste(geotif_folder, geotif_filename, geotif_date_codes[1], ".tif", sep=""))
+# Function to extract time series of EVI values for cells identified in the target_pixels layer
+# extracts from the set of geotifs in geotif_folder with filename listed in geotif_filenames
+
+stack_evi_layers <- function(target_pixels, geotif_folder, geotif_filenames) {
+  r = raster(paste(geotif_folder, geotif_filenames[1], sep=""))
   evi_stack = stack(r)
-  for (i in 2:length(geotif_date_codes)) {
-    r = raster(paste(geotif_folder, geotif_filename, geotif_date_codes[i], ".tif", sep=""))
+  for (i in 2:length(geotif_filenames)) {
+    r = raster(paste(geotif_folder, geotif_filenames[i], sep=""))
     evi_stack = stack(evi_stack, r)
   }
   return(evi_stack)
