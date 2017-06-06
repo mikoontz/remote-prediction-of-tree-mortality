@@ -10,6 +10,7 @@ features/waterbodies/*
 features/ADS-intermediate-products/*
 features/ADS-shapefiles/*
 features/ee_sierra-nevada-forest-quality-mask-modis-time-series/*
+features/ee-sn_jep_modis_ts_quality_mask_epsg3310/*
 features/FRAP-fire-perimeters/*
 features/FACTS/*
 ts/
