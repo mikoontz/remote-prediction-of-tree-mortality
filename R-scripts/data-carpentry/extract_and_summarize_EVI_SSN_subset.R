@@ -17,10 +17,10 @@ library(car)
 
 # Enter the locations of files to work with 
 # geotifs are the MODIS EVI data that Mike K exported from Google Earth Engine, they are stored in a single folder (geotif_folder) and are all names consistently with the prefix geotif_filename and a date code. 
-geotif_folder = "./features/ee_sierra-nevada-forest-quality-mask-modis-time-series/"
-geotif_filename =  "sn-whole-ts-modis-forest-quality-mask-"
-tmp = dir(geotif_folder)
-filenames = tmp[grep(geotif_filename, tmp)]
+geotif_folder = "./features/ee-sn_jep_modis_ts_quality_mask_epsg3310/"
+geotif_filename =  "sn_jep_modis_ts_quality_mask_"
+filenames = dir(geotif_folder, pattern=geotif_filename)
+
 
 # Get date information from the geotif filenames
 date_codes = sapply(filenames, substr, start=nchar(geotif_filename)+1, stop=nchar(geotif_filename)+8) 
