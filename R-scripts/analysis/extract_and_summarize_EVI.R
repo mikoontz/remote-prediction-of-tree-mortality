@@ -84,27 +84,35 @@ n_times = nlayers(evi_stack)
 
 # turn the EVI values into a matrix with pixels on the rows and times on the columns
 evi_mat = getValues(evi_stack)
+# retain only the cells that fall within target veg type
 evi_target_index = which(!is.na(getValues(target_albers)))
 evi_mat = evi_mat[evi_target_index,]
-evi_mat = evi_mat/10000 # rescale to standard EVI values
 colnames(evi_mat) = date_codes # columns indicate date of observation
 rownames(evi_mat) = evi_target_index # rows indicate location of pixel within source raster
+
+# Convert the missing values from Earth Engine (zeros) into NA's. 
+# also convert negative EVI values into NA's
+evi_mat[evi_mat<=0] = NA
+evi_mat = evi_mat/10000 # rescale to standard EVI values
+object.size(evi_mat)
+
+
 
 ######################################################
 # Summarize the EVI time series
 
 # how many "good" values are there per month? 
-#obs_by_mon = rep(NA, 12)
-#for (i in 0:11) obs_by_mon[i+1] = sum(!is.na(evi_mat[,dates$mon==i]))
-#barplot(obs_by_mon, names.arg=as.character(1:12))
-# all values present June-Sept, almost all in May too
+obs_by_mon = rep(NA, 12)
+for (i in 0:11) obs_by_mon[i+1] = sum(!is.na(evi_mat[,dates$mon==i]))
+barplot(obs_by_mon, names.arg=as.character(1:12))
+# all values present June-Sept, good number in May. April and Oct missing ~40% of values
 
 # temporally mask out all months but May-Sept
 # and the the years after 2012 (i.e. the drought years)
 # Q should we include the "early" drought years of 2013-14?
 startyear = 2000
 endyear = 2012
-evi_months = c(4,5,6,7,8) # which months -- note month numbers arew 0-11
+evi_months = c(4,5,6,7,8) # which months -- note month numbers are 0-11
 time_index = as.integer(which(dates$mon %in% evi_months & dates$year <= (endyear-1900) & dates$year >= (startyear-1900)))
 plot(evi_mat[10,time_index])
 
