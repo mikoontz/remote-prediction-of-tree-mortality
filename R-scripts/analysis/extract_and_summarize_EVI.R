@@ -84,17 +84,28 @@ n_times = nlayers(evi_stack)
 
 # turn the EVI values into a matrix with pixels on the rows and times on the columns
 evi_mat = getValues(evi_stack)
+colnames(evi_mat) = date_codes # rename columns to indicate date of observation
+rownames(evi_mat) = as.character(1:length(evi_template)) # rename rows to indicate location of pixel within source raster
+
 # retain only the cells that fall within target veg type
-evi_target_index = which(!is.na(getValues(target_albers)))
-evi_mat = evi_mat[evi_target_index,]
-colnames(evi_mat) = date_codes # columns indicate date of observation
-rownames(evi_mat) = evi_target_index # rows indicate location of pixel within source raster
+# and also within the EVI template that defines the region
+evi_target_index = !is.na(getValues(target_albers))
+evi_mask_index = getValues(evi_template)==1
+evi_mat = evi_mat[evi_mask_index & evi_target_index,] # Subset to the rows that are within the domain as defined in the template (cells outside this domain are 0s because that's how EarthEngine works, and there are a few NAs we can also exclude -- check this)
 
 # Convert the missing values from Earth Engine (zeros) into NA's. 
 # also convert negative EVI values into NA's
 evi_mat[evi_mat<=0] = NA
-evi_mat = evi_mat/10000 # rescale to standard EVI values
+
+# Remove rows that have no EVI data
+z = apply(evi_mat, 1, f<-function(x){return(sum(!is.na(x)))})
+evi_mat = evi_mat[z>0,]
 object.size(evi_mat)
+
+# Rescale
+evi_mat = evi_mat/10000 # rescale to standard EVI values
+
+
 
 
 
@@ -114,25 +125,16 @@ startyear = 2000
 endyear = 2012
 evi_months = c(4,5,6,7,8) # which months -- note month numbers are 0-11
 time_index = as.integer(which(dates$mon %in% evi_months & dates$year <= (endyear-1900) & dates$year >= (startyear-1900)))
-plot(evi_mat[10,time_index])
+plot(evi_mat[100,time_index])
 
-# Check how many pixels have EVI data at all 
-n_pixels = nrow(evi_mat)
-missing_index = rep(0, n_pixels)
-for (i in 1:n_pixels) missing_index[i] = sum(!is.na(evi_mat[i,]))
-sum(missing_index>0) # 1203 pixels -- about half -- contain EVI data
-
-# Further subset the data to areas that have EVI information
-evi_mat = evi_mat[missing_index>0,]
 
 ### Make single-number summaries of EVI time series and store in data frame
-
 
 # Summarize extracted values into data frame
 evi_summary = data.frame(cell_number=as.integer(rownames(evi_mat)))
 evi_summary$evi_mean = apply(evi_mat[,time_index], 1, mean, na.rm=T)
 evi_summary$evi_mayjun = apply(evi_mat[,dates$mon %in% c(4, 5) & dates$year <= (endyear-1900) & dates$year >= (startyear-1900) ], 1, mean, na.rm=T)
-evi_summary$evi_sept = apply(evi_mat[,dates$mon == 9 & dates$year <= (endyear-1900) & dates$year >= (startyear-1900) ], 1, mean, na.rm=T)
+evi_summary$evi_augsept = apply(evi_mat[,dates$mon %in% c(8,9) & dates$year <= (endyear-1900) & dates$year >= (startyear-1900) ], 1, mean, na.rm=T)
 evi_summary$seas_change = evi_summary$evi_sept - evi_summary$evi_mayjun
 evi_summary$seas_change_prop = (evi_summary$evi_sept/evi_summary$evi_may)-1
 evi_summary$total_var = apply(evi_mat[,time_index], 1, var, na.rm=T)
