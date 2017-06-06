@@ -46,6 +46,7 @@ length(vals_outside_region2); sum(vals_outside_region2>0)
 par(mfrow=c(1, 2)); plot(evi_template); plot(evi_000)
 unique(vals_outside_region2)
 # results: almost identical, but there are a few cells that "leak out" of the sierra nevada polygon presumably as a result of reprojection. 
+rm(evi_000)
 
 # load one mortality layer as a template
 mort_template = raster("features/ADS-rasterized/Y2015_sp122.tif")
@@ -93,22 +94,26 @@ stack_evi_layers <- function(target_pixels, geotif_folder, geotif_filenames) {
 }
 
 
-###### RESTART FROM HERE June 6 
-
 # Build the stack
 evi_stack = stack_evi_layers(target_pixels=target_albers, geotif_folder=geotif_folder, geotif_filenames=filenames)
 
 # Extract EVI stack values into a matrix with pixels on the rows and times on the columns
 evi_mat = getValues(evi_stack)
-rm(evi_stack)
 colnames(evi_mat) = date_codes # rename columns to indicate date of observation
 rownames(evi_mat) = as.character(1:length(evi_template)) # rename rows to indicate location of pixel within source raster. This is key for later for extracting mortality values and for matching analysis / summary results back to cells in the reference rasters. 
 
 # retain only the cells that fall within target veg type
 # and also within the EVI template that defines the region
+# and also were not disturbed from 2000 onward
 evi_target_index = !is.na(getValues(target_albers))
 evi_mask_index = getValues(evi_template)==1
-evi_mat = evi_mat[evi_mask_index & evi_target_index,] # Subset to the rows that are within the domain as defined in the template (cells outside this domain are 0s because that's how EarthEngine works, and there are a few NAs we can also exclude -- check this)
+fire_dates = raster("features/sierra_nevada_250m_most_recent_fire.tif")
+mgt_dates = raster("features/sierra_nevada_250m_most_recent_management.tif")
+fire_dates[is.na(fire_dates)] = 0 # put values in NA cells for ease of indexing
+mgt_dates[is.na(mgt_dates)] = 0 
+disturb_index = !(getValues(mgt_dates)>=2000) # | getValues(fire_dates)>=2000)
+
+evi_mat = evi_mat[evi_mask_index & evi_target_index & disturb_index,] # Subset to the rows that are within the domain as defined in the template (cells outside this domain are 0s because that's how EarthEngine works, and there are a few NAs we can also exclude -- check this)
 
 # Convert the missing values from Earth Engine (zeros) into NA's. 
 # also convert negative EVI values into NA's
@@ -116,6 +121,7 @@ evi_mat[evi_mat<=0] = NA
 
 # Remove rows that have no EVI data
 z = apply(evi_mat, 1, f<-function(x){return(sum(!is.na(x)))})
+sum(z==0)
 evi_mat = evi_mat[z>0,]
 object.size(evi_mat)
 
@@ -123,7 +129,7 @@ object.size(evi_mat)
 evi_mat = evi_mat/10000 # rescale to standard EVI values
 
 
-### NOTE: Should probably get rid of cells that have no mortality data here
+
 
 
 ######################################################
@@ -135,11 +141,11 @@ for (i in 0:11) obs_by_mon[i+1] = sum(!is.na(evi_mat[,dates$mon==i]))
 barplot(obs_by_mon, names.arg=as.character(1:12))
 # all values present June-Sept, good number in May. April and Oct missing ~40% of values
 
-# temporally mask out all months but May-Sept
-# and the the years after 2012 (i.e. the drought years)
-# Q should we include the "early" drought years of 2013-14?
+# Temporally mask out all months but May-Sept
+# and the the years after 2013 (i.e. the later drought years)
+# Q should we also include 2014?
 startyear = 2000
-endyear = 2012
+endyear = 2013
 evi_months = c(4,5,6,7,8) # which months -- note month numbers are 0-11
 time_index = as.integer(which(dates$mon %in% evi_months & dates$year <= (endyear-1900) & dates$year >= (startyear-1900)))
 plot(evi_mat[100,time_index])
