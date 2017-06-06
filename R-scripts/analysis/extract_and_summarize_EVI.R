@@ -32,6 +32,7 @@ dates = strptime(date_codes, "%Y%m%d")
 # Get the locations of the target pixels 
 # EVI template raster 
 evi_template = raster("features/sierra-nevada-250m-evi-template.tif")
+#evi_template = raster("features/ee-sn_jep_modis_ts_quality_mask_epsg3310/sn_jep_modis_ts_quality_mask_epsg3310_000_20000218.tif")
 # load one mortality layer as a template
 mort_template = raster("features/ADS-rasterized/Y2015_sp122.tif")
 mort_2015_2016 = raster("features/ADS-rasterized/Y2015_sp122.tif") + raster("features/ADS-rasterized/Y2016_sp122.tif")
