@@ -21,6 +21,9 @@ geotif_folder = "./features/ee-sn_jep_modis_ts_quality_mask_epsg3310/"
 geotif_filename =  "sn_jep_modis_ts_quality_mask_epsg3310_"
 filenames = dir(geotif_folder, pattern=geotif_filename)
 
+# Projection info
+albers.proj <- CRS("+proj=aea +lat_1=34 +lat_2=40.5 +lat_0=0 +lon_0=-120 +x_0=0 +y_0=-4000000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs")
+wgs.proj = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
 
 # Get date information from the geotif filenames
 date_codes = sapply(filenames, substr, start=nchar(geotif_filename)+5, stop=nchar(geotif_filename)+12) 
@@ -49,6 +52,16 @@ extent(mort_albers) == extent(evi_template)
 length(getValues(target_albers))
 length(getValues(mort_albers))
 length(getValues(evi_template))
+
+testpoint = SpatialPoints(coords=matrix(c(-120.75, 38.9), ncol=2), proj4string = wgs.proj)
+testpoint_alb = spTransform(testpoint, albers.proj)
+plot(evi_template); points(testpoint_alb)
+extract(evi_template, testpoint_alb, cellnumbers=T)
+plot(mort_albers); points(testpoint_alb)
+extract(mort_albers, testpoint_alb, cellnumbers=T)
+plot(target_albers); points(testpoint_alb)
+extract(target_albers, testpoint_alb, cellnumbers=T)
+# OK, returns the same cell index for all rasters. 
 
 
 # Function to extract time series of EVI values for pixels identified in the target_pixels layer
