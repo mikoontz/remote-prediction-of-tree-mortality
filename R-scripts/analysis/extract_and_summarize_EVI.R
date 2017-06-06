@@ -218,7 +218,6 @@ title("timeseries of EVI 2000-2016")
 
 
 # add the mortality data 
-### NEED TO CHECK WHETHER THIS IS GETTING THE RIGHT PIXELS FROM MORTALITY DATA! 
 mort_masked = mask(mort_albers, target_pixels)
 evi_summary$mort = getValues(mort_masked)[as.integer(rownames(evi_mat))]
 pairs(evi_summary[sub,])
@@ -226,13 +225,20 @@ pairs(evi_summary[sub,])
 x = as.matrix(cor(evi_summary[evi_summary$among_year_var<0.002 & evi_summary$within_year_var<0.005,], use="pairwise.complete"))
 heatmap(x, col=viridis(12))
 x
-# Note when we include all years, among-year variance has strongest correlation with mortality (0.29)
-# When we include just the pre-drought years 2000-2012, high evi, especially in early season, is positively correlated with mortality. Difference in late-season EVI in dry versus wet years is also strongly associated with mortality (sites that showed a drop earlier tended to have more mortality later). 
 
+
+# Store intermediate file 
+save(evi_summary, file="features/working-files/evi_summary_PPN_jepson.Rdata")
+
+
+############################################
+# Do some simple regressions
+
+load("features/working-files/evi_summary_PPN_jepson.Rdata")
 
 ### Run a simple model to check associations -- use tobit model in vgam library
 hist(evi_summary$mort)
-cols_to_standardize = c("evi_mayjun", "seas_change_prop", "within_year_var", "among_year_var", "linear_trend", "wet_dry_diff")
+cols_to_standardize = c("evi_mayjun", "seas_change_prop", "within_year_var", "among_year_var", "wet_dry_diff")
 for (i in 1:length(cols_to_standardize)) evi_summary[,cols_to_standardize[i]] = scale(evi_summary[,cols_to_standardize[i]])
 
 # check for correlation in explanatory variables
