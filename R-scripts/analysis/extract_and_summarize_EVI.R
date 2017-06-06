@@ -77,6 +77,7 @@ plot(mort_albers); points(testpoint_alb)
 extract(mort_albers, testpoint_alb, cellnumbers=T)
 plot(target_albers); points(testpoint_alb)
 extract(target_albers, testpoint_alb, cellnumbers=T)
+extract(raster("features/ee-sn_jep_modis_ts_quality_mask_epsg3310/sn_jep_modis_ts_quality_mask_epsg3310_000_20000218.tif"), testpoint_alb, cellnumbers=T)
 # OK, returns the same cell index for all rasters. 
 
 
@@ -128,12 +129,15 @@ object.size(evi_mat)
 # Rescale
 evi_mat = evi_mat/10000 # rescale to standard EVI values
 
-save(evi_mat, file="features/working-files/evi_data_matrix_jepson_PPN.Rdata")
+#save(evi_mat, file="features/working-files/evi_data_matrix_jepson_PPN.Rdata")
 
 
 
 ######################################################
 # Summarize the EVI time series
+
+# load evi data matrix
+load(file="features/working-files/evi_data_matrix_jepson_PPN.Rdata")
 
 # how many "good" values are there per month? 
 obs_by_mon = rep(NA, 12)
@@ -166,7 +170,7 @@ evi_summary$total_var = apply(evi_mat[,time_index], 1, var, na.rm=T)
 # define wet years as 2000, 2005, 2006, 2010, 2011
 # define dry years as 2002, 2007 ( could also include 2013 if that year's in the training data)
 wetmean = apply(evi_mat[,dates$year %in% c(100,105, 106, 2010, 2011) & dates$mon %in% c(7,8)], 1, mean, na.rm=T)
-drymean = apply(evi_mat[,dates$year %in% c(102,107) & dates$mon %in% c(7,8)], 1, mean, na.rm=T) # Q whether to include 2013 here
+drymean = apply(evi_mat[,dates$year %in% c(102,107, 113) & dates$mon %in% c(7,8)], 1, mean, na.rm=T) # Q whether to include 2013 here
 evi_summary$wet_dry_diff = drymean-wetmean
 evi_summary$wet_dry_propdiff = drymean/wetmean-1
 
@@ -195,17 +199,20 @@ evi_summary$within_year_var = apply(annual.var, 1, mean, na.rm=T)
 evi_summary$among_year_var = apply(annual.mean, 1, var, na.rm=T)
 
 # ratio of among-to-within-year variance 
-evi_summary$among_to_within_ratio = evi_summary$among_year_var / evi_summary$within_year_var
+#evi_summary$among_to_within_ratio = evi_summary$among_year_var / evi_summary$within_year_var
+
+
+
 
 ### Quick look 
-pairs(evi_summary[evi_summary$among_year_var<0.002 & evi_summary$within_year_var<0.005,])
+sub = sample(1:nrow(evi_mat), size=1000, replace=FALSE)
+pairs(evi_summary[sub,])
 # higher within-year variance associated with lower EVI. Maybe reflecting herbaceous cover? Higher among-year variance associated with linear trends (both positive and negative.)
 
-
 # a few cells have outlier-high variance -- look at these
-outliers = which(evi_summary$among_year_var>0.002)
-par(mfrow=c(3,3))
-for (i in 1:length(outliers)) plot(evi_mat[outliers[i],dates$mon %in% c(5,6,7,8,9)]~linear_time[dates$mon %in% c(5,6,7,8,9)], pch=16, cex=0.5, ylim=c(0.4, 0.9))
+outliers = which(evi_summary$within_year_var>0.10)
+par(mfrow=c(5,5), mar=rep(2,4))
+for (i in 1001:1025) plot(evi_mat[outliers[i],dates$mon %in% c(5,6,7,8,9)]~linear_time[dates$mon %in% c(5,6,7,8,9)], pch=16, cex=0.5, ylim=c(0, 1))
 title("timeseries of EVI 2000-2016")
 # interesting -- two of the high-variance outliers have sharp break in the middle suggesting fire or logging. Others show strong trends, maybe representing areas recovering from disturbance? 
 
@@ -214,10 +221,11 @@ title("timeseries of EVI 2000-2016")
 ### NEED TO CHECK WHETHER THIS IS GETTING THE RIGHT PIXELS FROM MORTALITY DATA! 
 mort_masked = mask(mort_albers, target_pixels)
 evi_summary$mort = getValues(mort_masked)[as.integer(rownames(evi_mat))]
-pairs(evi_summary[evi_summary$among_year_var<0.002 & evi_summary$within_year_var<0.005,])
+pairs(evi_summary[sub,])
 
 x = as.matrix(cor(evi_summary[evi_summary$among_year_var<0.002 & evi_summary$within_year_var<0.005,], use="pairwise.complete"))
 heatmap(x, col=viridis(12))
+x
 # Note when we include all years, among-year variance has strongest correlation with mortality (0.29)
 # When we include just the pre-drought years 2000-2012, high evi, especially in early season, is positively correlated with mortality. Difference in late-season EVI in dry versus wet years is also strongly associated with mortality (sites that showed a drop earlier tended to have more mortality later). 
 
