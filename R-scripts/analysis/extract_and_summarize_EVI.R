@@ -18,103 +18,126 @@ library(car)
 # Enter the locations of files to work with 
 # geotifs are the MODIS EVI data that Mike K exported from Google Earth Engine, they are stored in a single folder (geotif_folder) and are all names consistently with the prefix geotif_filename and a date code. 
 geotif_folder = "./features/ee-sn_jep_modis_ts_quality_mask_epsg3310/"
-geotif_filename =  "sn_jep_modis_ts_quality_mask_"
+geotif_filename =  "sn_jep_modis_ts_quality_mask_epsg3310_"
 filenames = dir(geotif_folder, pattern=geotif_filename)
 
+# Projection info
+albers.proj <- CRS("+proj=aea +lat_1=34 +lat_2=40.5 +lat_0=0 +lon_0=-120 +x_0=0 +y_0=-4000000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs")
+wgs.proj = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
 
 # Get date information from the geotif filenames
-date_codes = sapply(filenames, substr, start=nchar(geotif_filename)+1, stop=nchar(geotif_filename)+8) 
+date_codes = sapply(filenames, substr, start=nchar(geotif_filename)+5, stop=nchar(geotif_filename)+12) 
 dates = strptime(date_codes, "%Y%m%d")
 
 # Get the locations of the target pixels 
-# target cover raster 
-target_cover = raster("features/sierra_nevada_250m_calveg_pipo_forest-cover_whr_type.tif")
+# EVI template raster 
+evi_template = raster("features/sierra-nevada-250m-evi-template.tif")
+#evi_template = raster("features/ee-sn_jep_modis_ts_quality_mask_epsg3310/sn_jep_modis_ts_quality_mask_epsg3310_000_20000218.tif")
 # load one mortality layer as a template
 mort_template = raster("features/ADS-rasterized/Y2015_sp122.tif")
 mort_2015_2016 = raster("features/ADS-rasterized/Y2015_sp122.tif") + raster("features/ADS-rasterized/Y2016_sp122.tif")
-# subset the target cover raster to the mortality area 
-target_cover_sub = crop(target_cover, mort_template)
-# load one EVI layer as a template
-evi_template = raster(paste(geotif_folder, geotif_filename, date_codes[1], ".tif", sep=""))
 
-# Create a target cover layer for pixels with specified percent PIPO cover
-PIPO_cover_min = 80
-target_pixels = target_cover_sub >= PIPO_cover_min
-target_pixels[target_pixels==0] = NA # set the non-target values to NA which is default value for masking
-#plot(target_pixels)
+# Create a target cover layer for pixels with specified percent forest type cover
+# Start by focusing only on PPN for test run
+cover_min = 80 # Minumum cover of WHR type
+target_cover = raster("features/calveg-pct-cover-rasters/sierra_nevada_250m_calveg_cover_whr_type_PPN.tif")
+target_pixels = target_cover >= cover_min
 
-# Reproject target mask to match the EVI geotiffs (in Albers projection)
-target_pixels <- projectRaster(target_pixels, evi_template)
-mort
-# ISSUE- this changes the extent to the extent of the whole evi raster
-
-# Also reproject mortality data to match the EVI geotifs
+# Reproject rasters to match the EVI geotiffs (in Albers projection)
+target_albers <- projectRaster(target_pixels, evi_template)
 mort_albers = projectRaster(mort_2015_2016, evi_template)
 
-# Function to extract time series of EVI values for pixels identified in the target_pixels layer
-# extracts from the set of geotifs in geotif_folder with filename starting with geotif_filename and ending in an integer date code, as specified in geotif_date_codes.
-# Note this is very slow, since it reads in the whole raster for each time step, but for this reason also requires little memory. 
-# Probably should make one that first assembles a rasterbrick, then drills through it to get the time series. 
-stack_evi_layers <- function(target_pixels, geotif_folder, geotif_filename, geotif_date_codes) {
-  r = raster(paste(geotif_folder, geotif_filename, geotif_date_codes[1], ".tif", sep=""))
+# check 
+extent(target_albers) == extent(evi_template)
+extent(mort_albers) == extent(evi_template)
+length(getValues(target_albers))
+length(getValues(mort_albers))
+length(getValues(evi_template))
+
+testpoint = SpatialPoints(coords=matrix(c(-120.75, 38.9), ncol=2), proj4string = wgs.proj)
+testpoint_alb = spTransform(testpoint, albers.proj)
+plot(evi_template); points(testpoint_alb)
+extract(evi_template, testpoint_alb, cellnumbers=T)
+plot(mort_albers); points(testpoint_alb)
+extract(mort_albers, testpoint_alb, cellnumbers=T)
+plot(target_albers); points(testpoint_alb)
+extract(target_albers, testpoint_alb, cellnumbers=T)
+# OK, returns the same cell index for all rasters. 
+
+
+# Function to extract time series of EVI values for cells identified in the target_pixels layer
+# extracts from the set of geotifs in geotif_folder with filename listed in geotif_filenames
+
+stack_evi_layers <- function(target_pixels, geotif_folder, geotif_filenames) {
+  r = raster(paste(geotif_folder, geotif_filenames[1], sep=""))
   evi_stack = stack(r)
-  for (i in 2:length(geotif_date_codes)) {
-    r = raster(paste(geotif_folder, geotif_filename, geotif_date_codes[i], ".tif", sep=""))
+  for (i in 2:length(geotif_filenames)) {
+    r = raster(paste(geotif_folder, geotif_filenames[i], sep=""))
     evi_stack = stack(evi_stack, r)
   }
   return(evi_stack)
 }
 
 
+###### RESTART FROM HERE June 6 
 
-evi_stack = stack_evi_layers(target_pixels, geotif_folder, geotif_filename, date_codes)
-n_times = nlayers(evi_stack)
+# Build the stack
+evi_stack = stack_evi_layers(target_pixels=target_albers, geotif_folder=geotif_folder, geotif_filenames=filenames)
 
-# turn the EVI values into a matrix with pixels on the rows and times on the columns
+# Extract EVI stack values into a matrix with pixels on the rows and times on the columns
 evi_mat = getValues(evi_stack)
-evi_target_index = which(!is.na(getValues(target_pixels)))
-evi_mat = evi_mat[evi_target_index,]
-sum(is.na(evi_mat)); sum(evi_mat==1)
-evi_mat[evi_mat==1] = NA # replace the NA values
+rm(evi_stack)
+colnames(evi_mat) = date_codes # rename columns to indicate date of observation
+rownames(evi_mat) = as.character(1:length(evi_template)) # rename rows to indicate location of pixel within source raster. This is key for later for extracting mortality values and for matching analysis / summary results back to cells in the reference rasters. 
+
+# retain only the cells that fall within target veg type
+# and also within the EVI template that defines the region
+evi_target_index = !is.na(getValues(target_albers))
+evi_mask_index = getValues(evi_template)==1
+evi_mat = evi_mat[evi_mask_index & evi_target_index,] # Subset to the rows that are within the domain as defined in the template (cells outside this domain are 0s because that's how EarthEngine works, and there are a few NAs we can also exclude -- check this)
+
+# Convert the missing values from Earth Engine (zeros) into NA's. 
+# also convert negative EVI values into NA's
+evi_mat[evi_mat<=0] = NA
+
+# Remove rows that have no EVI data
+z = apply(evi_mat, 1, f<-function(x){return(sum(!is.na(x)))})
+evi_mat = evi_mat[z>0,]
+object.size(evi_mat)
+
+# Rescale
 evi_mat = evi_mat/10000 # rescale to standard EVI values
-colnames(evi_mat) = date_codes # columns indicate date of observation
-rownames(evi_mat) = evi_target_index # rows indicate location of pixel within source raster
+
+
+### NOTE: Should probably get rid of cells that have no mortality data here
+
 
 ######################################################
 # Summarize the EVI time series
 
 # how many "good" values are there per month? 
-#obs_by_mon = rep(NA, 12)
-#for (i in 0:11) obs_by_mon[i+1] = sum(!is.na(evi_mat[,dates$mon==i]))
-#barplot(obs_by_mon, names.arg=as.character(1:12))
-# all values present June-Sept, almost all in May too
+obs_by_mon = rep(NA, 12)
+for (i in 0:11) obs_by_mon[i+1] = sum(!is.na(evi_mat[,dates$mon==i]))
+barplot(obs_by_mon, names.arg=as.character(1:12))
+# all values present June-Sept, good number in May. April and Oct missing ~40% of values
 
 # temporally mask out all months but May-Sept
 # and the the years after 2012 (i.e. the drought years)
 # Q should we include the "early" drought years of 2013-14?
 startyear = 2000
 endyear = 2012
-evi_months = c(4,5,6,7,8) # which months -- note month numbers arew 0-11
+evi_months = c(4,5,6,7,8) # which months -- note month numbers are 0-11
 time_index = as.integer(which(dates$mon %in% evi_months & dates$year <= (endyear-1900) & dates$year >= (startyear-1900)))
-plot(evi_mat[10,time_index])
+plot(evi_mat[100,time_index])
 
-# Check how many pixels have EVI data at all 
-n_pixels = nrow(evi_mat)
-missing_index = rep(0, n_pixels)
-for (i in 1:n_pixels) missing_index[i] = sum(!is.na(evi_mat[i,]))
-sum(missing_index>0) # 1203 pixels -- about half -- contain EVI data
-
-# Further subset the data to areas that have EVI information
-evi_mat = evi_mat[missing_index>0,]
 
 ### Make single-number summaries of EVI time series and store in data frame
-
 
 # Summarize extracted values into data frame
 evi_summary = data.frame(cell_number=as.integer(rownames(evi_mat)))
 evi_summary$evi_mean = apply(evi_mat[,time_index], 1, mean, na.rm=T)
 evi_summary$evi_mayjun = apply(evi_mat[,dates$mon %in% c(4, 5) & dates$year <= (endyear-1900) & dates$year >= (startyear-1900) ], 1, mean, na.rm=T)
-evi_summary$evi_sept = apply(evi_mat[,dates$mon == 9 & dates$year <= (endyear-1900) & dates$year >= (startyear-1900) ], 1, mean, na.rm=T)
+evi_summary$evi_augsept = apply(evi_mat[,dates$mon %in% c(8,9) & dates$year <= (endyear-1900) & dates$year >= (startyear-1900) ], 1, mean, na.rm=T)
 evi_summary$seas_change = evi_summary$evi_sept - evi_summary$evi_mayjun
 evi_summary$seas_change_prop = (evi_summary$evi_sept/evi_summary$evi_may)-1
 evi_summary$total_var = apply(evi_mat[,time_index], 1, var, na.rm=T)
