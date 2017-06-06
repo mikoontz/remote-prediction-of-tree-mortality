@@ -8,8 +8,7 @@ var evi = modis.filterDate("2017-01-01", "2017-04-01").
                 clip(sn);
 
 var template_img = evi.
-                    mask().
-                    clip(sn.geometry().bounds());
+                    mask();
                     
 Map.addLayer(template_img);
 
@@ -25,8 +24,7 @@ Export.image.toDrive({image: template_img,
                       description: "sierra-nevada-250m-evi-template",
                       fileNamePrefix: "sierra-nevada-250m-evi-template",
                       scale: 250,
-                      region: sn,
+                      region: sn.geometry().getInfo()['coordinates'],
                       crs: 'EPSG:3310',
-                      folder: "ee",
-                      skipEmptyTiles: true
+                      folder: "ee"
 });
