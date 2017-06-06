@@ -27,29 +27,29 @@ date_codes = sapply(filenames, substr, start=nchar(geotif_filename)+5, stop=ncha
 dates = strptime(date_codes, "%Y%m%d")
 
 # Get the locations of the target pixels 
-# target cover raster 
+# EVI template raster 
 evi_template = raster("features/sierra-nevada-250m-evi-template.tif")
 # load one mortality layer as a template
 mort_template = raster("features/ADS-rasterized/Y2015_sp122.tif")
 mort_2015_2016 = raster("features/ADS-rasterized/Y2015_sp122.tif") + raster("features/ADS-rasterized/Y2016_sp122.tif")
-# subset the target cover raster to the mortality area 
-target_cover_sub = crop(target_cover, mort_template)
-# load one EVI layer as a template
-evi_template = raster(paste(geotif_folder, geotif_filename, date_codes[1], ".tif", sep=""))
 
-# Create a target cover layer for pixels with specified percent PIPO cover
-PIPO_cover_min = 80
-target_pixels = target_cover_sub >= PIPO_cover_min
-target_pixels[target_pixels==0] = NA # set the non-target values to NA which is default value for masking
-#plot(target_pixels)
+# Create a target cover layer for pixels with specified percent forest type cover
+# Start by focusing only on PPN for test run
+cover_min = 80 # Minumum cover of WHR type
+target_cover = raster("features/calveg-pct-cover-rasters/sierra_nevada_250m_calveg_cover_whr_type_PPN.tif")
+target_pixels = target_cover >= cover_min
 
-# Reproject target mask to match the EVI geotiffs (in Albers projection)
-target_pixels <- projectRaster(target_pixels, evi_template)
-mort
-# ISSUE- this changes the extent to the extent of the whole evi raster
-
-# Also reproject mortality data to match the EVI geotifs
+# Reproject rasters to match the EVI geotiffs (in Albers projection)
+target_albers <- projectRaster(target_pixels, evi_template)
 mort_albers = projectRaster(mort_2015_2016, evi_template)
+
+# check 
+extent(target_albers) == extent(evi_template)
+extent(mort_albers) == extent(evi_template)
+length(getValues(target_albers))
+length(getValues(mort_albers))
+length(getValues(evi_template))
+
 
 # Function to extract time series of EVI values for pixels identified in the target_pixels layer
 # extracts from the set of geotifs in geotif_folder with filename starting with geotif_filename and ending in an integer date code, as specified in geotif_date_codes.
