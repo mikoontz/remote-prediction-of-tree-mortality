@@ -79,15 +79,13 @@ stack_evi_layers <- function(target_pixels, geotif_folder, geotif_filenames) {
 
 
 
-evi_stack = stack_evi_layers(target_pixels, geotif_folder, geotif_filename, date_codes)
+evi_stack = stack_evi_layers(target_pixels=target_albers, geotif_folder=geotif_folder, geotif_filenames=filenames)
 n_times = nlayers(evi_stack)
 
 # turn the EVI values into a matrix with pixels on the rows and times on the columns
 evi_mat = getValues(evi_stack)
-evi_target_index = which(!is.na(getValues(target_pixels)))
+evi_target_index = which(!is.na(getValues(target_albers)))
 evi_mat = evi_mat[evi_target_index,]
-sum(is.na(evi_mat)); sum(evi_mat==1)
-evi_mat[evi_mat==1] = NA # replace the NA values
 evi_mat = evi_mat/10000 # rescale to standard EVI values
 colnames(evi_mat) = date_codes # columns indicate date of observation
 rownames(evi_mat) = evi_target_index # rows indicate location of pixel within source raster
