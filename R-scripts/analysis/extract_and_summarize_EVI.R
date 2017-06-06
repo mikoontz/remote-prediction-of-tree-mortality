@@ -242,11 +242,11 @@ cols_to_standardize = c("evi_mayjun", "seas_change_prop", "within_year_var", "am
 for (i in 1:length(cols_to_standardize)) evi_summary[,cols_to_standardize[i]] = scale(evi_summary[,cols_to_standardize[i]])
 
 # check for correlation in explanatory variables
-vif(lm(mort~evi_mayjun+seas_change_prop+within_year_var + among_year_var+ linear_trend+wet_dry_diff, data=evi_summary))
-cor(evi_summary[,cols_to_standardize])
+vif(lm(mort~evi_mayjun+seas_change_prop+within_year_var + among_year_var+wet_dry_diff, data=evi_summary))
+cor(evi_summary[,cols_to_standardize], use="pairwise.complete")
 
 # fit model
-m = vglm(mort~evi_mayjun+seas_change_prop+within_year_var + among_year_var+ linear_trend+wet_dry_diff, tobit, data=evi_summary, trace=TRUE)
+m = vglm(mort~evi_mayjun*seas_change_prop+wet_dry_diff+within_year_var + among_year_var, tobit, data=evi_summary, trace=TRUE)
 summary(m)
 
 plot(evi_summary$mort[!is.na(evi_summary$mort)]~predict(m, type="response"))
