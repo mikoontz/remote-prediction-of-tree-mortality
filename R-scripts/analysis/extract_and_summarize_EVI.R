@@ -78,14 +78,16 @@ stack_evi_layers <- function(target_pixels, geotif_folder, geotif_filenames) {
 }
 
 
+###### RESTART FROM HERE June 6 
 
+# Build the stack
 evi_stack = stack_evi_layers(target_pixels=target_albers, geotif_folder=geotif_folder, geotif_filenames=filenames)
-n_times = nlayers(evi_stack)
 
-# turn the EVI values into a matrix with pixels on the rows and times on the columns
+# Extract EVI stack values into a matrix with pixels on the rows and times on the columns
 evi_mat = getValues(evi_stack)
+rm(evi_stack)
 colnames(evi_mat) = date_codes # rename columns to indicate date of observation
-rownames(evi_mat) = as.character(1:length(evi_template)) # rename rows to indicate location of pixel within source raster
+rownames(evi_mat) = as.character(1:length(evi_template)) # rename rows to indicate location of pixel within source raster. This is key for later for extracting mortality values and for matching analysis / summary results back to cells in the reference rasters. 
 
 # retain only the cells that fall within target veg type
 # and also within the EVI template that defines the region
@@ -106,7 +108,7 @@ object.size(evi_mat)
 evi_mat = evi_mat/10000 # rescale to standard EVI values
 
 
-
+### NOTE: Should probably get rid of cells that have no mortality data here
 
 
 ######################################################
