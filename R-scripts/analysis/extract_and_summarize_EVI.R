@@ -181,7 +181,7 @@ evi_summary$wet_dry_propdiff = drymean/wetmean-1
 # add trends
 linear_time = scale(as.integer(dates[1:length(dates)]-dates[1]))
 # Note this is slow with many pixels and should be parallelized! 
-system.time(for (i in nrow(evi_mat)) evi_summary$linear_trend[i] = coef(lm(evi_mat[i,time_index]~linear_time[time_index]))[2])
+system.time(for (i in 1:nrow(evi_mat)) evi_summary$linear_trend[i] = coef(lm(evi_mat[i,time_index]~linear_time[time_index]))[2])
 
 # partition variance
 years = (startyear-1900):(endyear-1900)
@@ -210,7 +210,7 @@ evi_summary$among_to_within_ratio = evi_summary$among_year_var / evi_summary$wit
 
 ### Quick look 
 sub = sample(1:nrow(evi_mat), size=500, replace=FALSE)
-pairs(evi_summary[sub,])
+#pairs(evi_summary[sub,])
 
 # Note removing the disturbed pixels seems to have removed the very high variance outliers
 # look at cells with high within-year variance 
@@ -219,7 +219,7 @@ par(mfrow=c(5,5), mar=rep(2,4))
 for (i in 1:25) plot(evi_mat[outliers[i],dates$mon %in% c(5,6,7,8,9)]~linear_time[dates$mon %in% c(5,6,7,8,9)], pch=16, cex=0.5, ylim=c(0, 1))
 title("timeseries of EVI 2000-2016")
 # same for high among-year variance 
-outliers = which(evi_summary$among_year_var>0.002)
+outliers = which(evi_summary$among_year_var>0.005)
 par(mfrow=c(5,5), mar=rep(2,4))
 for (i in 1:25) plot(evi_mat[outliers[i],dates$mon %in% c(5,6,7,8,9)]~linear_time[dates$mon %in% c(5,6,7,8,9)], pch=16, cex=0.5, ylim=c(0, 1))
 title("timeseries of EVI 2000-2016")
@@ -237,25 +237,25 @@ x
 
 
 # Store intermediate file 
-save(evi_summary, file="features/working-files/evi_summary_PPN_jepson.Rdata")
+save(evi_summary, file="features/working-files/evi_summary_PPN+SMC_jepson.Rdata")
 
 
 ############################################
 # Do some simple regressions
 
-load("features/working-files/evi_summary_PPN_jepson.Rdata")
+load("features/working-files/evi_summary_PPN+SMC_jepson.Rdata")
 
 ### Run a simple model to check associations -- use tobit model in vgam library
 hist(evi_summary$mort)
-cols_to_standardize = c("evi_mayjun", "seas_change_prop", "within_year_var", "among_year_var", "wet_dry_diff", "linear_trend")
+cols_to_standardize = c("evi_mayjun", "seas_change", "within_year_var", "among_year_var", "wet_dry_diff", "linear_trend")
 for (i in 1:length(cols_to_standardize)) evi_summary[,cols_to_standardize[i]] = scale(evi_summary[,cols_to_standardize[i]])
 
 # check for correlation in explanatory variables
-vif(lm(mort~evi_mayjun+seas_change_prop+within_year_var + among_year_var+wet_dry_diff+linear_trend, data=evi_summary))
+vif(lm(mort~evi_mayjun+seas_change+within_year_var + among_year_var+wet_dry_diff+linear_trend, data=evi_summary))
 cor(evi_summary[,cols_to_standardize], use="pairwise.complete")
 
 # fit model
-m = vglm(mort~evi_mayjun+seas_change_prop+wet_dry_diff+within_year_var + among_year_var+linear_trend, tobit, data=evi_summary, trace=TRUE)
+m = vglm(mort~evi_mayjun+seas_change+wet_dry_diff+within_year_var + among_year_var+linear_trend, tobit, data=evi_summary, trace=TRUE)
 summary(m)
 
 plot(evi_summary$mort[!is.na(evi_summary$mort)]~predict(m, type="response"))
@@ -280,14 +280,14 @@ target_pixels_na = target_pixels
 target_pixels_na[target_pixels_na==0] = NA
 plot_to_region(evi_summary$evi_mayjun, evi_summary$cell_number, target_pixels_na); title("May-Jun mean EVI")
 plot_to_region(evi_summary$seas_change, evi_summary$cell_number, target_pixels_na); title("early- to late-season change in EVI")
-plot_to_region(evi_summary$seas_change_prop, evi_summary$cell_number, target_pixels_na); title("prop. early- to late-season change in EVI")
+
 #
 plot_to_region(evi_summary$among_year_var, evi_summary$cell_number, target_pixels); title("among-year variance")
-plot_to_region(evi_summary$wet_dry_diff, evi_summary$cell_number, target_pixels); title("Wet-to-dry-year change in EVI")
+plot_to_region(evi_summary$wet_dry_diff, evi_summary$cell_number, target_pixels_na); title("Wet-to-dry-year change in EVI")
 
 # observed and predicted mortality 
 mort_pred = fitted(m)
-plot_to_region(evi_summary$mort, evi_summary$cell_number, target_pixels)
+plot_to_region(evi_summary$mort, evi_summary$cell_number, target_pixels_na)
 plot_to_region(evi_summary$cell_number, evi_summary$cell_number, target_pixels_na)
 
 plot_to_region(mort_pred, evi_summary$cell_number[!is.na(evi_summary$mort)], target_pixels_na) # something wrong here! !
@@ -295,7 +295,7 @@ plot_to_region(mort_pred, evi_summary$cell_number[!is.na(evi_summary$mort)], tar
 plot(evi_summary$mort[!is.na(evi_summary$mort)]~mort_pred); abline(c(0,1))
 
 # look at random individual pixels
-par(mfrow=c(4,4), mar=rep(2, 4)
+par(mfrow=c(4,4), mar=rep(2, 4))
 for (i in 1:16) plot(evi_mat[sample(1:nrow(evi_mat), 1),dates$mon %in% c(5,6,7,8,9)]~linear_time[dates$mon %in% c(5,6,7,8,9)], pch=16, cex=0.4, ylim=c(0, 0.9))
 
 # all pixels averaged
