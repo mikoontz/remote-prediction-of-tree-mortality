@@ -57,8 +57,9 @@ mort_2015_2016 = raster("features/ADS-rasterized/Y2015_sp122.tif") + raster("fea
 cover_min = 80 # Minumum cover of WHR type
 target_cover = raster("features/calveg-pct-cover-rasters/sierra_nevada_250m_calveg_cover_whr_type_PPN.tif")
 target_pixels = target_cover
-target_pixels[target_cover<80] = NA
+target_pixels[target_cover<80] = 0
 target_pixels[target_cover>=80] = 1
+target_pixels[is.na(target_pixels)] = 0 
 
 # Reproject mortality raster to match the EVI geotiffs (in Albers projection). 
 # Note target veg raster is already in this projection. 
@@ -108,7 +109,7 @@ rownames(evi_mat) = as.character(1:length(evi_template)) # rename rows to indica
 # retain only the cells that fall within target veg type
 # and also within the EVI template that defines the region
 # and also were not disturbed from 2000 onward
-evi_target_index = getValues(target_albers)==1
+evi_target_index = getValues(target_pixels)==1
 evi_mask_index = getValues(evi_template)==1
 fire_dates = raster("features/sierra_nevada_250m_most_recent_fire.tif")
 mgt_dates = raster("features/sierra_nevada_250m_most_recent_management.tif")
@@ -122,7 +123,7 @@ evi_mat = evi_mat[evi_mask_index & evi_target_index & disturb_index,] # Subset t
 # also convert negative EVI values into NA's
 evi_mat[evi_mat<=0] = NA
 
-# Remove rows that have no EVI data
+# Remove rows that have no EVI data, if any
 z = apply(evi_mat, 1, f<-function(x){return(sum(!is.na(x)))})
 sum(z==0)
 evi_mat = evi_mat[z>0,]
@@ -131,7 +132,7 @@ object.size(evi_mat)
 # Rescale
 evi_mat = evi_mat/10000 # rescale to standard EVI values
 
-#save(evi_mat, file="features/working-files/evi_data_matrix_jepson_PPN.Rdata")
+save(evi_mat, file="features/working-files/evi_data_matrix_jepson_PPN.Rdata")
 
 
 
@@ -179,7 +180,7 @@ evi_summary$wet_dry_propdiff = drymean/wetmean-1
 # add trends
 linear_time = scale(as.integer(dates[1:length(dates)]-dates[1]))
 # Note this is slow with many pixels and should be parallelized! 
-#for (i in 1:nrow(evi_mat)) evi_summary$linear_trend[i] = coef(lm(evi_mat[i,time_index]~linear_time[time_index]))[2]
+for (i in 1:nrow(evi_mat)) evi_summary$linear_trend[i] = coef(lm(evi_mat[i,time_index]~linear_time[time_index]))[2]
 
 # partition variance
 years = (startyear-1900):(endyear-1900)
