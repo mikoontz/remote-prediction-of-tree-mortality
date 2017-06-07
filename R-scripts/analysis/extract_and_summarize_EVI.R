@@ -256,45 +256,35 @@ abline(0,1)
 #####################
 # Make output plots
 
-plot_EVI_to_subregion <- function(values, index, target_pixels, target_cover_sub) { # index is the row numbers of the cells to plot, and indexes grid cells in the original evi_template and target_pixels rasters
-  # values is the values to assign to these 
-  # it uses target_pixels as the template rasters, and target_cover_sub as the extent and coordinate system to display the plot in
+plot_to_region <- function(values, index, target_pixels) { # index is the row numbers of the cells to plot, and indexes grid cells in the original evi_template and target_pixels rasters
+  # values is the values to assign to these, using the cell numbers in index
+  # it uses target_pixels as the template rasters
   plotraster = target_pixels
   plotraster[index] = values
-  plotraster[plotraster>0.95] = NA # get rid of excess indicator values in the template raster
-  plotraster = projectRaster(plotraster, target_cover_sub)
-  plot(plotraster, col=viridis(12))
-}
-
-plot_to_subregion <- function(values, index, target_pixels, target_cover_sub) { # index is the row numbers of the cells to plot, and indexes grid cells in the original evi_template and target_pixels rasters
-  # values is the values to assign to these 
-  # it uses target_pixels as the template rasters, and target_cover_sub as the extent and coordinate system to display the plot in
-  plotraster = target_pixels
-  plotraster[index] = values
-  plotraster = projectRaster(plotraster, target_cover_sub)
   plot(plotraster, col=viridis(12))
 }
 
 
 # plot some EVI summaries
 #par(mfrow=c(2,2))
-plot_EVI_to_subregion(evi_summary$evi_mayjun, evi_summary$cell_number, target_pixels, target_cover_sub); title("May-Jun mean EVI")
-plot_EVI_to_subregion(evi_summary$seas_change, evi_summary$cell_number, target_pixels, target_cover_sub); title("early- to late-season change in EVI")
-plot_EVI_to_subregion(evi_summary$linear_trend, evi_summary$cell_number, target_pixels, target_cover_sub); title("Linear trend 2000-2012")
-plot_EVI_to_subregion(evi_summary$wet_dry_diff, evi_summary$cell_number, target_pixels, target_cover_sub); title("Wet-to-dry-year change in EVI")
+plot_to_region(evi_summary$evi_mayjun, evi_summary$cell_number, target_albers); title("May-Jun mean EVI")
+plot_to_region(evi_summary$seas_change, evi_summary$cell_number, target_albers); title("early- to late-season change in EVI")
+#
+plot_to_region(evi_summary$among_year_var, evi_summary$cell_number, target_albers); title("among-year variance")
+plot_to_region(evi_summary$wet_dry_diff, evi_summary$cell_number, target_albers); title("Wet-to-dry-year change in EVI")
 
 # observed and predicted mortality 
-plot_to_subregion(evi_summary$mort, evi_summary$cell_number, target_pixels, target_cover_sub)
-plot_to_subregion(predict(m, type="response"), evi_summary$cell_number[!is.na(evi_summary$mort)], target_pixels, target_cover_sub)
+plot_to_subregion(evi_summary$mort, evi_summary$cell_number, target_pixels, target_cover)
+plot_to_subregion(predict(m, type="response"), evi_summary$cell_number[!is.na(evi_summary$mort)], target_pixels, target_cover) # something wrong here! !
 
 # look at random individual pixels
 par(mfrow=c(4,4), mar=rep(2, 4))
-for (i in 1:16) plot(evi_mat[sample(1:1203, 1),dates$mon %in% c(5,6,7,8,9)]~linear_time[dates$mon %in% c(5,6,7,8,9)], pch=16, cex=0.4, ylim=c(0.4, 0.9))
+for (i in 1:16) plot(evi_mat[sample(1:nrow(evi_mat), 1),dates$mon %in% c(5,6,7,8,9)]~linear_time[dates$mon %in% c(5,6,7,8,9)], pch=16, cex=0.4, ylim=c(0, 0.9))
 
 # all pixels averaged
 evi_mean_all = apply(evi_mat, 2, mean, na.rm=T)
 # long time series
-plot(evi_mean_all~linear_time)
+plot(evi_mean_all, ylim=c(0.2, 0.4), type="l",lwd=2, col="cyan4")
 # I'd say this shows that 2013 was low, clearly a drought year, but not out of the normal range for the rest of the years. So for model fitting, seems ok to go through 2013. The later years are drastically low, esp 2016. Will be interesting to see the rebound in 2017, if any. 
 # plotting the spatial average for each year. 
 plot(evi_mean_all[dates$year==100]~dates$yday[dates$year==100], type="l", lwd=2, col="cyan4", ylim=c(0.4, 0.9))
@@ -303,4 +293,4 @@ for (i in 113:116) lines(evi_mean_all[dates$year==i]~dates$yday[dates$year==i ],
 # For this region, 2016 looks pretty flat -- mortality mainly happened in 2015 it appears.
 
 # linear model just to vaguely assess fit
-summary(lm(sqrt(mort)~evi_mayjun+seas_change_prop+within_year_var + among_year_var+ linear_trend+wet_dry_diff, data=evi_summary))
+summary(lm(sqrt(mort)~evi_mayjun*seas_change_prop+within_year_var + among_year_var+ wet_dry_diff, data=evi_summary))
