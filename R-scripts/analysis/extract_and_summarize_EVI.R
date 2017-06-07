@@ -56,18 +56,18 @@ mort_2015_2016 = raster("features/ADS-rasterized/Y2015_sp122.tif") + raster("fea
 # Start by focusing only on PPN for test run
 cover_min = 80 # Minumum cover of WHR type
 target_cover = raster("features/calveg-pct-cover-rasters/sierra_nevada_250m_calveg_cover_whr_type_PPN.tif")
-target_pixels = target_cover >= cover_min
+target_pixels = target_cover
+target_pixels[target_cover<80] = NA
+target_pixels[target_cover>=80] = 1
 
-# Reproject rasters to match the EVI geotiffs (in Albers projection)
-target_albers <- projectRaster(target_pixels, evi_template)
+# Reproject mortality raster to match the EVI geotiffs (in Albers projection). 
+# Note target veg raster is already in this projection. 
 mort_albers = projectRaster(mort_2015_2016, evi_template)
 
-
-
 # check 
-extent(target_albers) == extent(evi_template)
+extent(target_pixels) == extent(evi_template)
 extent(mort_albers) == extent(evi_template)
-length(getValues(target_albers))
+length(getValues(target_pixels))
 length(getValues(mort_albers))
 length(getValues(evi_template))
 
@@ -77,8 +77,8 @@ plot(evi_template); points(testpoint_alb)
 extract(evi_template, testpoint_alb, cellnumbers=T)
 plot(mort_albers); points(testpoint_alb)
 extract(mort_albers, testpoint_alb, cellnumbers=T)
-plot(target_albers); points(testpoint_alb)
-extract(target_albers, testpoint_alb, cellnumbers=T)
+plot(target_pixels); points(testpoint_alb)
+extract(target_pixels, testpoint_alb, cellnumbers=T)
 extract(raster("features/ee-sn_jep_modis_ts_quality_mask_epsg3310/sn_jep_modis_ts_quality_mask_epsg3310_000_20000218.tif"), testpoint_alb, cellnumbers=T)
 # OK, returns the same cell index for all rasters. 
 
@@ -98,7 +98,7 @@ stack_evi_layers <- function(geotif_folder, geotif_filenames) {
 
 
 # Build the stack
-evi_stack = stack_evi_layers(target_pixels=target_albers, geotif_folder=geotif_folder, geotif_filenames=filenames)
+evi_stack = stack_evi_layers(geotif_folder=geotif_folder, geotif_filenames=filenames)
 
 # Extract EVI stack values into a matrix with pixels on the rows and times on the columns
 evi_mat = getValues(evi_stack)
@@ -108,7 +108,7 @@ rownames(evi_mat) = as.character(1:length(evi_template)) # rename rows to indica
 # retain only the cells that fall within target veg type
 # and also within the EVI template that defines the region
 # and also were not disturbed from 2000 onward
-evi_target_index = !is.na(getValues(target_pixels))
+evi_target_index = getValues(target_albers)==1
 evi_mask_index = getValues(evi_template)==1
 fire_dates = raster("features/sierra_nevada_250m_most_recent_fire.tif")
 mgt_dates = raster("features/sierra_nevada_250m_most_recent_management.tif")
