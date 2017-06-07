@@ -106,7 +106,7 @@ rownames(evi_mat) = as.character(1:length(evi_template)) # rename rows to indica
 # retain only the cells that fall within target veg type
 # and also within the EVI template that defines the region
 # and also were not disturbed from 2000 onward
-evi_target_index = !is.na(getValues(target_albers))
+evi_target_index = !is.na(getValues(target_pixels))
 evi_mask_index = getValues(evi_template)==1
 fire_dates = raster("features/sierra_nevada_250m_most_recent_fire.tif")
 mgt_dates = raster("features/sierra_nevada_250m_most_recent_management.tif")
