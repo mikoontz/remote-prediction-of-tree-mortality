@@ -62,6 +62,8 @@ target_pixels = target_cover >= cover_min
 target_albers <- projectRaster(target_pixels, evi_template)
 mort_albers = projectRaster(mort_2015_2016, evi_template)
 
+
+
 # check 
 extent(target_albers) == extent(evi_template)
 extent(mort_albers) == extent(evi_template)
@@ -84,7 +86,7 @@ extract(raster("features/ee-sn_jep_modis_ts_quality_mask_epsg3310/sn_jep_modis_t
 # Function to extract time series of EVI values for cells identified in the target_pixels layer
 # extracts from the set of geotifs in geotif_folder with filename listed in geotif_filenames
 
-stack_evi_layers <- function(target_pixels, geotif_folder, geotif_filenames) {
+stack_evi_layers <- function(geotif_folder, geotif_filenames) {
   r = raster(paste(geotif_folder, geotif_filenames[1], sep=""))
   evi_stack = stack(r)
   for (i in 2:length(geotif_filenames)) {
@@ -112,7 +114,7 @@ fire_dates = raster("features/sierra_nevada_250m_most_recent_fire.tif")
 mgt_dates = raster("features/sierra_nevada_250m_most_recent_management.tif")
 fire_dates[is.na(fire_dates)] = 0 # put values in NA cells for ease of indexing
 mgt_dates[is.na(mgt_dates)] = 0 
-disturb_index = !(getValues(mgt_dates)>=2000) # | getValues(fire_dates)>=2000)
+disturb_index = !(getValues(mgt_dates)>=2000 | getValues(fire_dates)>=2000)
 
 evi_mat = evi_mat[evi_mask_index & evi_target_index & disturb_index,] # Subset to the rows that are within the domain as defined in the template (cells outside this domain are 0s because that's how EarthEngine works, and there are a few NAs we can also exclude -- check this)
 
