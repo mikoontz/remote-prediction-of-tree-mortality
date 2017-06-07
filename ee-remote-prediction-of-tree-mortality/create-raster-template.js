@@ -2,17 +2,23 @@
 var modis = ee.ImageCollection("MODIS/006/MOD13Q1"),
     sn = ee.FeatureCollection("ft:1vdDUTu09Rkw5qKR_DSfmFX-b_7kqy4E-pjxg9Sq6");
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
-var evi = modis.filterDate("2017-01-01", "2017-04-01").
+var evi = ee.Image(modis.filterDate("2017-01-01", "2017-04-01").
                 select(["EVI"]).
-                mosaic().
-                clip(sn);
+                first());
+
+var mask = ee.Image(1).clip(sn);
 
 var template_img = evi.
-                    mask();
-                    
+                    unmask().
+                    addBands(mask).
+                    rename(["EVI", "mask"]).
+                    select(["mask"]).
+                    clip(sn);
+              
+Map.addLayer(mask);                    
 Map.addLayer(template_img);
 
-Map.addLayer(evi, {min: -2000, max: 10000, palette: ["ff0000", "00ff00"]});
+Map.addLayer(evi.clip(sn.geometry().bounds()), {min: -2000, max: 10000, palette: ["ff0000", "00ff00"]});
 Map.centerObject(sn);
 
 // Input is EPSG:4326 by default for .kml files upon import,
