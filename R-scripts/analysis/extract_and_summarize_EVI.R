@@ -70,6 +70,8 @@ target_pixels = mask(target_pixels, subset_layer_albers, updatevalue=0)
 # Reproject mortality raster to match the EVI geotiffs (in Albers projection). 
 # Note target veg raster is already in this projection. 
 mort_albers = projectRaster(mort_2015_2016, evi_template)
+# Remover numerical artefacts from projection
+mort_albers[which(getValues(mort_albers)<0)] = 0
 
 # check 
 extent(target_pixels) == extent(evi_template)
@@ -161,7 +163,7 @@ startyear = 2000
 endyear = 2013
 evi_months = c(4,5,6,7,8) # which months -- note month numbers are 0-11
 time_index = as.integer(which(dates$mon %in% evi_months & dates$year <= (endyear-1900) & dates$year >= (startyear-1900)))
-plot(evi_mat[100,time_index])
+plot(evi_mat[10,time_index])
 
 
 ### Make single-number summaries of EVI time series and store in data frame
@@ -265,6 +267,8 @@ cor(evi_summary[,cols_to_standardize], use="pairwise.complete")
 m = vglm(mort~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend, tobit, data=evi_summary, trace=TRUE)
 summary(m)
 
+barplot(coef(m)[3:8], horiz=T, las=2, main="tobit model coefficients", col=ifelse(coef(m)[3:8]<0, "red", "blue"), cex.names=0.5)
+
 plot(evi_summary$mort[!is.na(evi_summary$mort)]~predict(m, type="response"))
 abline(0,1)
 
@@ -272,13 +276,12 @@ abline(0,1)
 #####################
 # Make output plots
 
-plot_to_region <- function(values, index, target_pixels, crop_layer) { # index is the row numbers of the cells to plot, and indexes grid cells in the original evi_template and target_pixels rasters
-  # values is the values to assign to these, using the cell numbers in index
-  # it uses target_pixels as the template rasters
-  plotraster = target_pixels
-  plotraster[index] = values
-  plotraster = crop(plotraster, crop_layer)
-  plot(plotraster, col=viridis(12))
+plot_to_region <- function(cell.values, cell.index, crop_layer) { # index is the row numbers of the cells to plot, and indexes grid cells in the original evi_template
+  r_tmp = evi_template
+  r_tmp = setValues(r_tmp, rep(NA, length(r_tmp)))
+  r_tmp[cell.index] = cell.values
+  r_plot = crop(r_tmp, crop_layer)
+  plot(r_plot) #col=viridis(10))
 }
 
 
@@ -289,19 +292,23 @@ plot_to_region <- function(values, index, target_pixels, crop_layer) { # index i
 # make a template for plotting 
 target_pixels_na = target_pixels
 target_pixels_na[target_pixels_na==0] = NA
-plot_to_region(evi_summary$evi_mayjun, evi_summary$cell_number, target_pixels_na, subset_layer_albers); title("May-Jun mean EVI")
+plot_to_region(evi_summary$evi_mean, evi_summary$cell_number,subset_layer_albers); title("mean EVI")
+
+
 plot_to_region(evi_summary$seas_change, evi_summary$cell_number, target_pixels_na, subset_layer_albers); title("early- to late-season change in EVI")
 plot_to_region(sqrt(evi_summary$among_year_var-min(evi_summary$among_year_var)), evi_summary$cell_number, target_pixels_na, subset_layer_albers); title("among-year sd")
 plot_to_region(evi_summary$wet_dry_diff, evi_summary$cell_number, target_pixels_na, subset_layer_albers); title("Wet-to-dry-year change in EVI")
 
 # observed and predicted mortality 
 mort_pred = fitted(m)
-par(mfrow=c(1,2))
-plot_to_region(evi_summary$mort, evi_summary$cell_number, target_pixels_na, subset_layer_albers)
-plot_to_region(mort_pred[!is.na(evi_summary$mort)], evi_summary$cell_number[!is.na(evi_summary$mort)], target_pixels_na,subset_layer_albers) # something wrong here! !
-plot_to_region(sqrt(evi_summary$mort), evi_summary$cell_number, target_pixels_na, subset_layer_albers)
-plot_to_region(sqrt(mort_pred-min(mort_pred))[!is.na(evi_summary$mort)], evi_summary$cell_number[!is.na(evi_summary$mort)], target_pixels_na,subset_layer_albers)
+# As a quick fix for visualization, truncate mortality prediction / fit at 0
+mort_pred[mort_pred<0] = 0
 
+par(mfrow=c(1,2))
+plot_to_region(sqrt(evi_summary$mort), evi_summary$cell_number, target_pixels_na, subset_layer_albers)
+title("Sqrt observed mortality")
+plot_to_region(sqrt(mort_pred)[!is.na(evi_summary$mort)], evi_summary$cell_number[!is.na(evi_summary$mort)], target_pixels_na,subset_layer_albers)
+title("Sqrt model fit")
 
 
 plot(evi_summary$mort[!is.na(evi_summary$mort)][1:89506]~sqrt(mort_pred+121)); abline(c(0,1))
@@ -320,8 +327,13 @@ plot(evi_mean_all[dates$year==100]~dates$yday[dates$year==100], type="l", lwd=2,
 for (i in 101:112) lines(evi_mean_all[dates$year==i]~dates$yday[dates$year==i], type="l", lwd=2, col="cyan4")
 for (i in 113:116) lines(evi_mean_all[dates$year==i]~dates$yday[dates$year==i ], type="l", lwd=2, col="orange3")
 
+m_lin = lm(sqrt(mort)~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend, data=evi_summary[!is.na(evi_summary$mort),])
+summary(m_lin)
 
-summary(lm(sqrt(mort)~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend, data=evi_summary[!is.na(evi_summary$mort),]))
-
-
+mort_pred = predict(m_lin)
+mort_pred[mort_pred<0]= 0
+plot_to_region(sqrt(evi_summary$mort), evi_summary$cell_number, target_pixels_na, subset_layer_albers)
+title("Sqrt observed mortality")
+plot_to_region(mort_pred[!is.na(evi_summary$mort)], evi_summary$cell_number[!is.na(evi_summary$mort)], target_pixels_na,subset_layer_albers)
+title("Sqrt model fit")
 
