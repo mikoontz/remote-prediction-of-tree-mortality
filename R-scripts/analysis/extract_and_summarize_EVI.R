@@ -221,6 +221,7 @@ evi_summary$among_to_within_ratio = evi_summary$among_year_var / evi_summary$wit
 sub = sample(1:nrow(evi_mat), size=500, replace=FALSE)
 #pairs(evi_summary[sub,])
 
+## Check variance outliers
 # Note removing the disturbed pixels seems to have removed the very high variance outliers
 # look at cells with high within-year variance 
 outliers = which(evi_summary$within_year_var>0.01)
@@ -235,7 +236,7 @@ title("timeseries of EVI 2000-2016")
 # these seem now to represent mainly cell with strong time-trends
 
 
-# add the mortality data 
+## Add the mortality data 
 mort_masked = mask(mort_albers, target_pixels, maskvalue=0)
 evi_summary$mort = getValues(mort_masked)[as.integer(rownames(evi_mat))]
 pairs(evi_summary[sub,])
@@ -244,6 +245,9 @@ x = as.matrix(cor(evi_summary[evi_summary$among_year_var<0.002 & evi_summary$wit
 heatmap(x, col=viridis(12))
 x
 
+# Clean out NAs
+evi_summary = evi_summary[complete.cases(evi_summary),]
+dim(evi_summary)
 
 # Store intermediate file 
 save(evi_summary, file="features/working-files/evi_summary_PPN+SMC_jepson_central+south.Rdata")
@@ -281,7 +285,7 @@ plot_to_region <- function(cell.values, cell.index, crop_layer) { # index is the
   r_tmp = setValues(r_tmp, rep(NA, length(r_tmp)))
   r_tmp[cell.index] = cell.values
   r_plot = crop(r_tmp, crop_layer)
-  plot(r_plot) #col=viridis(10))
+  plot(r_plot,col=viridis(10))
 }
 
 
@@ -295,23 +299,20 @@ target_pixels_na[target_pixels_na==0] = NA
 plot_to_region(evi_summary$evi_mean, evi_summary$cell_number,subset_layer_albers); title("mean EVI")
 
 
-plot_to_region(evi_summary$seas_change, evi_summary$cell_number, target_pixels_na, subset_layer_albers); title("early- to late-season change in EVI")
+plot_to_region(evi_summary$seas_change, evi_summary$cell_number, subset_layer_albers); title("Early-season EVI minus late-season EVI")
 plot_to_region(sqrt(evi_summary$among_year_var-min(evi_summary$among_year_var)), evi_summary$cell_number, target_pixels_na, subset_layer_albers); title("among-year sd")
-plot_to_region(evi_summary$wet_dry_diff, evi_summary$cell_number, target_pixels_na, subset_layer_albers); title("Wet-to-dry-year change in EVI")
+plot_to_region(evi_summary$wet_dry_diff, evi_summary$cell_number, subset_layer_albers); title("Wet-year mean EVI minus dry-year mean EVI")
 
 # observed and predicted mortality 
 mort_pred = fitted(m)
 # As a quick fix for visualization, truncate mortality prediction / fit at 0
 mort_pred[mort_pred<0] = 0
-
 par(mfrow=c(1,2))
-plot_to_region(sqrt(evi_summary$mort), evi_summary$cell_number, target_pixels_na, subset_layer_albers)
+plot_to_region(sqrt(evi_summary$mort[!is.na(evi_summary$mort)]), evi_summary$cell_number[!is.na(evi_summary$mort)], subset_layer_albers)
 title("Sqrt observed mortality")
-plot_to_region(sqrt(mort_pred)[!is.na(evi_summary$mort)], evi_summary$cell_number[!is.na(evi_summary$mort)], target_pixels_na,subset_layer_albers)
+plot_to_region(sqrt(mort_pred)[!is.na(evi_summary$mort)], evi_summary$cell_number[!is.na(evi_summary$mort)], subset_layer_albers)
 title("Sqrt model fit")
 
-
-plot(evi_summary$mort[!is.na(evi_summary$mort)][1:89506]~sqrt(mort_pred+121)); abline(c(0,1))
 
 # look at random individual pixels
 par(mfrow=c(4,4), mar=rep(2, 4))
@@ -332,8 +333,8 @@ summary(m_lin)
 
 mort_pred = predict(m_lin)
 mort_pred[mort_pred<0]= 0
-plot_to_region(sqrt(evi_summary$mort), evi_summary$cell_number, target_pixels_na, subset_layer_albers)
+plot_to_region(sqrt(evi_summary$mort), evi_summary$cell_number, subset_layer_albers)
 title("Sqrt observed mortality")
-plot_to_region(mort_pred[!is.na(evi_summary$mort)], evi_summary$cell_number[!is.na(evi_summary$mort)], target_pixels_na,subset_layer_albers)
+plot_to_region(mort_pred[!is.na(evi_summary$mort)], evi_summary$cell_number[!is.na(evi_summary$mort)],subset_layer_albers)
 title("Sqrt model fit")
 
