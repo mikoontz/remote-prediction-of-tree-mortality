@@ -122,7 +122,7 @@ mgt_dates = raster("features/sierra_nevada_250m_most_recent_management.tif")
 fire_dates[is.na(fire_dates)] = 0 # put values in NA cells for ease of indexing
 mgt_dates[is.na(mgt_dates)] = 0 
 disturb_index = !(getValues(mgt_dates)>=2000 | getValues(fire_dates)>=2000)
-
+sum(evi_mask_index & evi_target_index & disturb_index)
 evi_mat = evi_mat[evi_mask_index & evi_target_index & disturb_index,] # Subset to the rows that are within the domain as defined in the template (cells outside this domain are 0s because that's how EarthEngine works, and there are a few NAs we can also exclude -- check this)
 
 # Convert the missing values from Earth Engine (zeros) into NA's. 
@@ -138,7 +138,7 @@ object.size(evi_mat)
 # Rescale
 evi_mat = evi_mat/10000 # rescale to standard EVI values
 
-save(evi_mat, file="features/working-files/evi_data_matrix_jepson_PPN+SMC.Rdata")
+save(evi_mat, file="features/working-files/evi_data_matrix_jepson_PPN+SMC_central+south.Rdata")
 
 
 
@@ -146,7 +146,7 @@ save(evi_mat, file="features/working-files/evi_data_matrix_jepson_PPN+SMC.Rdata"
 # Summarize the EVI time series
 
 # load evi data matrix
-load(file="features/working-files/evi_data_matrix_jepson_PPN+SMC.Rdata")
+load(file="features/working-files/evi_data_matrix_jepson_PPN+SMC_central+south.Rdata")
 
 # how many "good" values are there per month? 
 obs_by_mon = rep(NA, 12)
@@ -171,7 +171,7 @@ evi_summary = data.frame(cell_number=as.integer(rownames(evi_mat)))
 evi_summary$evi_mean = apply(evi_mat[,time_index], 1, mean, na.rm=T)
 evi_summary$evi_mayjun = apply(evi_mat[,dates$mon %in% c(4, 5) & dates$year <= (endyear-1900) & dates$year >= (startyear-1900) ], 1, mean, na.rm=T)
 evi_summary$evi_augsept = apply(evi_mat[,dates$mon %in% c(7,8) & dates$year <= (endyear-1900) & dates$year >= (startyear-1900) ], 1, mean, na.rm=T)
-evi_summary$seas_change = evi_summary$evi_augsept - evi_summary$evi_mayjun
+evi_summary$seas_change = evi_summary$evi_mayjun - evi_summary$evi_augsept
 evi_summary$seas_change_prop = (evi_summary$evi_augsept/evi_summary$evi_mayjun)-1
 evi_summary$total_var = apply(evi_mat[,time_index], 1, var, na.rm=T)
 
@@ -180,7 +180,7 @@ evi_summary$total_var = apply(evi_mat[,time_index], 1, var, na.rm=T)
 # define dry years as 2002, 2007 ( could also include 2013 if that year's in the training data)
 wetmean = apply(evi_mat[,dates$year %in% c(100,105, 106, 2010, 2011) & dates$mon %in% c(7,8)], 1, mean, na.rm=T)
 drymean = apply(evi_mat[,dates$year %in% c(102,107, 113) & dates$mon %in% c(7,8)], 1, mean, na.rm=T) # Q whether to include 2013 here
-evi_summary$wet_dry_diff = drymean-wetmean
+evi_summary$wet_dry_diff = wetmean-drymean
 evi_summary$wet_dry_propdiff = drymean/wetmean-1
 
 # add trends
@@ -203,9 +203,11 @@ for (i in 1:length(years)) {
 
 # within-year variance
 evi_summary$within_year_var = apply(annual.var, 1, mean, na.rm=T)
+evi_summary$within_year_sd = sqrt(evi_summary$within_year_var)
 
 # among-year variance
 evi_summary$among_year_var = apply(annual.mean, 1, var, na.rm=T)
+evi_summary$among_year_sd = sqrt(evi_summary$among_year_var)
 
 # ratio of among-to-within-year variance 
 evi_summary$among_to_within_ratio = evi_summary$among_year_var / evi_summary$within_year_var
@@ -224,7 +226,7 @@ par(mfrow=c(5,5), mar=rep(2,4))
 for (i in 1:25) plot(evi_mat[outliers[i],dates$mon %in% c(5,6,7,8,9)]~linear_time[dates$mon %in% c(5,6,7,8,9)], pch=16, cex=0.5, ylim=c(0, 1))
 title("timeseries of EVI 2000-2016")
 # same for high among-year variance 
-outliers = which(evi_summary$among_year_var>0.005)
+outliers = which(evi_summary$among_year_var>0.002)
 par(mfrow=c(5,5), mar=rep(2,4))
 for (i in 1:25) plot(evi_mat[outliers[i],dates$mon %in% c(5,6,7,8,9)]~linear_time[dates$mon %in% c(5,6,7,8,9)], pch=16, cex=0.5, ylim=c(0, 1))
 title("timeseries of EVI 2000-2016")
@@ -242,25 +244,25 @@ x
 
 
 # Store intermediate file 
-save(evi_summary, file="features/working-files/evi_summary_PPN+SMC_jepson.Rdata")
+save(evi_summary, file="features/working-files/evi_summary_PPN+SMC_jepson_central+south.Rdata")
 
 
 ############################################
 # Do some simple regressions
 
-load("features/working-files/evi_summary_PPN+SMC_jepson.Rdata")
+load("features/working-files/evi_summary_PPN+SMC_jepson_central+south.Rdata")
 
 ### Run a simple model to check associations -- use tobit model in vgam library
 hist(evi_summary$mort)
-cols_to_standardize = c("evi_mayjun", "seas_change", "within_year_var", "among_year_var", "wet_dry_diff", "linear_trend")
+cols_to_standardize = c("evi_mean", "seas_change", "within_year_sd", "among_year_sd", "wet_dry_diff", "linear_trend")
 for (i in 1:length(cols_to_standardize)) evi_summary[,cols_to_standardize[i]] = scale(evi_summary[,cols_to_standardize[i]])
 
 # check for correlation in explanatory variables
-vif(lm(mort~evi_mayjun+seas_change+within_year_var + among_year_var+wet_dry_diff+linear_trend, data=evi_summary))
+vif(lm(mort~evi_mean+seas_change+within_year_sd + among_year_sd+wet_dry_diff+linear_trend, data=evi_summary))
 cor(evi_summary[,cols_to_standardize], use="pairwise.complete")
 
 # fit model
-m = vglm(mort~evi_mayjun+seas_change+wet_dry_diff+within_year_var + among_year_var+linear_trend, tobit, data=evi_summary, trace=TRUE)
+m = vglm(mort~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend, tobit, data=evi_summary, trace=TRUE)
 summary(m)
 
 plot(evi_summary$mort[!is.na(evi_summary$mort)]~predict(m, type="response"))
@@ -270,31 +272,37 @@ abline(0,1)
 #####################
 # Make output plots
 
-plot_to_region <- function(values, index, target_pixels) { # index is the row numbers of the cells to plot, and indexes grid cells in the original evi_template and target_pixels rasters
+plot_to_region <- function(values, index, target_pixels, crop_layer) { # index is the row numbers of the cells to plot, and indexes grid cells in the original evi_template and target_pixels rasters
   # values is the values to assign to these, using the cell numbers in index
   # it uses target_pixels as the template rasters
   plotraster = target_pixels
   plotraster[index] = values
+  plotraster = crop(plotraster, crop_layer)
   plot(plotraster, col=viridis(12))
 }
 
 
+###########################
+# Visualization
+
 # plot some EVI summaries
-#par(mfrow=c(2,2))
+# make a template for plotting 
 target_pixels_na = target_pixels
 target_pixels_na[target_pixels_na==0] = NA
-plot_to_region(evi_summary$evi_mayjun, evi_summary$cell_number, target_pixels_na); title("May-Jun mean EVI")
-plot_to_region(evi_summary$seas_change, evi_summary$cell_number, target_pixels_na); title("early- to late-season change in EVI")
-
-#
-plot_to_region(evi_summary$among_year_var, evi_summary$cell_number, target_pixels); title("among-year variance")
-plot_to_region(evi_summary$wet_dry_diff, evi_summary$cell_number, target_pixels_na); title("Wet-to-dry-year change in EVI")
+plot_to_region(evi_summary$evi_mayjun, evi_summary$cell_number, target_pixels_na, subset_layer_albers); title("May-Jun mean EVI")
+plot_to_region(evi_summary$seas_change, evi_summary$cell_number, target_pixels_na, subset_layer_albers); title("early- to late-season change in EVI")
+plot_to_region(sqrt(evi_summary$among_year_var-min(evi_summary$among_year_var)), evi_summary$cell_number, target_pixels_na, subset_layer_albers); title("among-year sd")
+plot_to_region(evi_summary$wet_dry_diff, evi_summary$cell_number, target_pixels_na, subset_layer_albers); title("Wet-to-dry-year change in EVI")
 
 # observed and predicted mortality 
 mort_pred = fitted(m)
 par(mfrow=c(1,2))
-plot_to_region(sqrt(evi_summary$mort), evi_summary$cell_number, target_pixels_na)
-plot_to_region(sqrt(mort_pred+121), evi_summary$cell_number[!is.na(evi_summary$mort)], target_pixels_na) # something wrong here! !
+plot_to_region(evi_summary$mort, evi_summary$cell_number, target_pixels_na, subset_layer_albers)
+plot_to_region(mort_pred[!is.na(evi_summary$mort)], evi_summary$cell_number[!is.na(evi_summary$mort)], target_pixels_na,subset_layer_albers) # something wrong here! !
+plot_to_region(sqrt(evi_summary$mort), evi_summary$cell_number, target_pixels_na, subset_layer_albers)
+plot_to_region(sqrt(mort_pred-min(mort_pred))[!is.na(evi_summary$mort)], evi_summary$cell_number[!is.na(evi_summary$mort)], target_pixels_na,subset_layer_albers)
+
+
 
 plot(evi_summary$mort[!is.na(evi_summary$mort)][1:89506]~sqrt(mort_pred+121)); abline(c(0,1))
 
@@ -313,7 +321,7 @@ for (i in 101:112) lines(evi_mean_all[dates$year==i]~dates$yday[dates$year==i], 
 for (i in 113:116) lines(evi_mean_all[dates$year==i]~dates$yday[dates$year==i ], type="l", lwd=2, col="orange3")
 
 
-summary(lm(sqrt(mort)~evi_mayjun+seas_change_prop+wet_dry_diff+within_year_var + among_year_var+linear_trend, data=evi_summary[!is.na(evi_summary$mort),]))
+summary(lm(sqrt(mort)~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend, data=evi_summary[!is.na(evi_summary$mort),]))
 
 
 
