@@ -50,7 +50,7 @@ evi_template = raster("features/sierra-nevada-250m-evi-template.tif")
 
 # load one mortality layer as a template
 mort_template = raster("features/ADS-rasterized/Y2015_sp122.tif")
-mort_2015_2016 = raster("features/ADS-rasterized/Y2015_sp122.tif") + raster("features/ADS-rasterized/Y2016_sp122.tif")
+mort_2015_2016 = raster("features/ADS-rasterized/Y2015_spALL.tif") + raster("features/ADS-rasterized/Y2016_spALL.tif")
 
 # Create a target cover layer for pixels with specified percent forest type cover
 # Start by focusing only on PPN for test run
@@ -61,6 +61,11 @@ target_pixels = target_cover
 target_pixels[target_cover<80] = 0
 target_pixels[target_cover>=80] = 1
 target_pixels[is.na(target_pixels)] = 0 
+
+# Optionally further geographically subset the target pixels
+subset_layer = shapefile("features/jepson-central+southern-outline.shp")
+subset_layer_albers = spTransform(subset_layer, albers.proj)
+target_pixels = mask(target_pixels, subset_layer_albers, updatevalue=0)
 
 # Reproject mortality raster to match the EVI geotiffs (in Albers projection). 
 # Note target veg raster is already in this projection. 
@@ -287,12 +292,11 @@ plot_to_region(evi_summary$wet_dry_diff, evi_summary$cell_number, target_pixels_
 
 # observed and predicted mortality 
 mort_pred = fitted(m)
-plot_to_region(evi_summary$mort, evi_summary$cell_number, target_pixels_na)
-plot_to_region(evi_summary$cell_number, evi_summary$cell_number, target_pixels_na)
+par(mfrow=c(1,2))
+plot_to_region(sqrt(evi_summary$mort), evi_summary$cell_number, target_pixels_na)
+plot_to_region(sqrt(mort_pred+121), evi_summary$cell_number[!is.na(evi_summary$mort)], target_pixels_na) # something wrong here! !
 
-plot_to_region(mort_pred, evi_summary$cell_number[!is.na(evi_summary$mort)], target_pixels_na) # something wrong here! !
-
-plot(evi_summary$mort[!is.na(evi_summary$mort)]~mort_pred); abline(c(0,1))
+plot(evi_summary$mort[!is.na(evi_summary$mort)][1:89506]~sqrt(mort_pred+121)); abline(c(0,1))
 
 # look at random individual pixels
 par(mfrow=c(4,4), mar=rep(2, 4))
@@ -309,7 +313,7 @@ for (i in 101:112) lines(evi_mean_all[dates$year==i]~dates$yday[dates$year==i], 
 for (i in 113:116) lines(evi_mean_all[dates$year==i]~dates$yday[dates$year==i ], type="l", lwd=2, col="orange3")
 
 
-summary(lm(log(mort+0.01)~evi_mayjun+seas_change_prop+wet_dry_diff+within_year_var + among_year_var+linear_trend, data=evi_summary))
+summary(lm(sqrt(mort)~evi_mayjun+seas_change_prop+wet_dry_diff+within_year_var + among_year_var+linear_trend, data=evi_summary[!is.na(evi_summary$mort),]))
 
 
 
