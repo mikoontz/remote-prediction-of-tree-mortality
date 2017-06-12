@@ -285,7 +285,7 @@ plot_to_region <- function(cell.values, cell.index, crop_layer) { # index is the
   r_tmp = setValues(r_tmp, rep(NA, length(r_tmp)))
   r_tmp[cell.index] = cell.values
   r_plot = crop(r_tmp, crop_layer)
-  plot(r_plot,col=viridis(10))
+  plot(r_plot,col=tim.colors(16))#col=viridis(10))
 }
 
 
@@ -299,9 +299,9 @@ target_pixels_na[target_pixels_na==0] = NA
 plot_to_region(evi_summary$evi_mean, evi_summary$cell_number,subset_layer_albers); title("mean EVI")
 
 
-plot_to_region(evi_summary$seas_change, evi_summary$cell_number, subset_layer_albers); title("Early-season EVI minus late-season EVI")
+plot_to_region(evi_summary$seas_change, evi_summary$cell_number, subset_layer_albers); title("Early-season EVI minus late-season EVI", cex.main=0.7)
 plot_to_region(sqrt(evi_summary$among_year_var-min(evi_summary$among_year_var)), evi_summary$cell_number, target_pixels_na, subset_layer_albers); title("among-year sd")
-plot_to_region(evi_summary$wet_dry_diff, evi_summary$cell_number, subset_layer_albers); title("Wet-year mean EVI minus dry-year mean EVI")
+plot_to_region(evi_summary$wet_dry_diff, evi_summary$cell_number, subset_layer_albers); title("Wet-year mean EVI minus dry-year mean EVI", cex.main=0.7)
 
 # observed and predicted mortality 
 mort_pred = fitted(m)
@@ -333,8 +333,13 @@ summary(m_lin)
 
 mort_pred = predict(m_lin)
 mort_pred[mort_pred<0]= 0
+par(mfrow=c(1,2))
 plot_to_region(sqrt(evi_summary$mort), evi_summary$cell_number, subset_layer_albers)
 title("Sqrt observed mortality")
+# stupid hack to get the same color scale in both plots
+mort_pred[1] = sqrt(max(evi_summary$mort))
 plot_to_region(mort_pred[!is.na(evi_summary$mort)], evi_summary$cell_number[!is.na(evi_summary$mort)],subset_layer_albers)
 title("Sqrt model fit")
+
+
 
