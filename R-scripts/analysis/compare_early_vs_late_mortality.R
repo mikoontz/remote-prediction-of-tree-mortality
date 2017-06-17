@@ -14,6 +14,7 @@ library(fields)
 library(VGAM)
 library(viridis)
 library(car)
+library(spdep)
 
 # Enter the locations of files to work with 
 # geotifs are the MODIS EVI data that Mike K exported from Google Earth Engine, they are stored in a single folder (geotif_folder) and are all names consistently with the prefix geotif_filename and a date code. 
@@ -67,10 +68,29 @@ target_pixels = mask(target_pixels, subset_layer_albers, updatevalue=0)
 
 # Reproject mortality raster to match the EVI geotiffs (in Albers projection). 
 # Note target veg raster is already in this projection. 
-mort_albers = projectRaster(mort_2015_2016, evi_template)
-# Remover numerical artefacts from projection
-mort_albers[which(getValues(mort_albers)<0)] = 0
+mort_2011_albers = projectRaster(mort_2011, evi_template)
+mort_2012_albers = projectRaster(mort_2012, evi_template)
+mort_2013_albers = projectRaster(mort_2013, evi_template)
+mort_2014_albers = projectRaster(mort_2014, evi_template)
+mort_2015_albers = projectRaster(mort_2015, evi_template)
+mort_2016_albers = projectRaster(mort_2016, evi_template)
 
+# Remover numerical artefacts from projection
+mort_2011_albers[which(getValues(mort_2011_albers)<0)] = 0
+mort_2012_albers[which(getValues(mort_2012_albers)<0)] = 0
+mort_2013_albers[which(getValues(mort_2013_albers)<0)] = 0
+mort_2014_albers[which(getValues(mort_2014_albers)<0)] = 0
+mort_2015_albers[which(getValues(mort_2015_albers)<0)] = 0
+mort_2016_albers[which(getValues(mort_2016_albers)<0)] = 0
+
+
+# create a variable that describes average mortality in a grid cell's neighbors
+evi_points = rasterToPoints(evi_template)
+summary_points = evi_points[evi_summary$cell_number,1:2]
+evi_neigh = dnearneigh(summary_points, d1=100, d2=740, longlat=FALSE)
+mort_neigh = lapply(evi_neigh, f<- function(x){return(mean(evi_summary$mort_2014[x], na.rm=T))})
+evi_summary$mort_neigh = unlist(mort_neigh)
+hist(log(evi_summary$mort_neigh+0.1))
 
 ######################################################
 # Explore summaries of EVI time series
@@ -78,33 +98,46 @@ mort_albers[which(getValues(mort_albers)<0)] = 0
 load("features/working-files/evi_summary_PPN+SMC_jepson_central+south.Rdata")
 
 ## Add the mortality data 
-mort_masked = mask(mort_albers, target_pixels, maskvalue=0)
-evi_summary$mort = getValues(mort_masked)[as.integer(rownames(evi_mat))]
-pairs(evi_summary[sub,])
+mort_2011_masked = mask(mort_2011_albers, target_pixels, maskvalue=0)
+evi_summary$mort_2011 = getValues(mort_2011_masked)[evi_summary$cell_number]
+mort_2012_masked = mask(mort_2012_albers, target_pixels, maskvalue=0)
+evi_summary$mort_2012 = getValues(mort_2012_masked)[evi_summary$cell_number]
+mort_2013_masked = mask(mort_2013_albers, target_pixels, maskvalue=0)
+evi_summary$mort_2013 = getValues(mort_2013_masked)[evi_summary$cell_number]
+mort_2014_masked = mask(mort_2014_albers, target_pixels, maskvalue=0)
+evi_summary$mort_2014 = getValues(mort_2014_masked)[evi_summary$cell_number]
+mort_2015_masked = mask(mort_2015_albers, target_pixels, maskvalue=0)
+evi_summary$mort_2015 = getValues(mort_2015_masked)[evi_summary$cell_number]
+mort_2016_masked = mask(mort_2016_albers, target_pixels, maskvalue=0)
+evi_summary$mort_2016 = getValues(mort_2016_masked)[evi_summary$cell_number]
 
 # Clean out NAs
 evi_summary = evi_summary[complete.cases(evi_summary),]
 dim(evi_summary)
 
 # Store intermediate file 
-save(evi_summary, file="features/working-files/evi_summary_PPN+SMC_jepson_central+south.Rdata")
+save(evi_summary, file="features/working-files/evi_summary_with_mort_PPN+SMC_jepson_central+south.Rdata")
 
 
 ############################################
-# Do some simple regressions
-
+# Do some simple regressions for different years
 
 ### Run a simple model to check associations -- use tobit model in vgam library
-hist(evi_summary$mort)
 cols_to_standardize = c("evi_mean", "seas_change", "within_year_sd", "among_year_sd", "wet_dry_diff", "linear_trend")
 for (i in 1:length(cols_to_standardize)) evi_summary[,cols_to_standardize[i]] = scale(evi_summary[,cols_to_standardize[i]])
 
-# check for correlation in explanatory variables
-vif(lm(mort~evi_mean+seas_change+within_year_sd + among_year_sd+wet_dry_diff+linear_trend, data=evi_summary))
-cor(evi_summary[,cols_to_standardize], use="pairwise.complete")
-
 # fit model
-m = vglm(mort~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend, tobit, data=evi_summary, trace=TRUE)
+m = vglm(mort_2011~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend, tobit, data=evi_summary, trace=TRUE)
+summary(m)
+m = vglm(mort_2012~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend, tobit, data=evi_summary, trace=TRUE)
+summary(m)
+m = vglm(mort_2013~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend, tobit, data=evi_summary, trace=TRUE)
+summary(m)
+m = vglm(mort_2014~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend, tobit, data=evi_summary, trace=TRUE)
+summary(m)
+m = vglm(mort_2015~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend, tobit, data=evi_summary, trace=TRUE)
+summary(m)
+m = vglm(mort_2016~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend, tobit, data=evi_summary, trace=TRUE)
 summary(m)
 
 barplot(coef(m)[3:8], horiz=T, las=2, main="tobit model coefficients", col=ifelse(coef(m)[3:8]<0, "red", "blue"), cex.names=0.5)
@@ -112,6 +145,19 @@ barplot(coef(m)[3:8], horiz=T, las=2, main="tobit model coefficients", col=ifels
 plot(evi_summary$mort[!is.na(evi_summary$mort)]~predict(m, type="response"))
 abline(0,1)
 
+# dumb linear version
+m_lin = lm(sqrt(mort_2016)~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend , data=evi_summary)
+summary(m_lin)
+m_lin = lm(sqrt(mort_2015)~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend , data=evi_summary)
+summary(m_lin)
+m_lin = lm(sqrt(mort_2014)~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend , data=evi_summary)
+summary(m_lin)
+m_lin = lm(sqrt(mort_2013)~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend , data=evi_summary)
+summary(m_lin)
+m_lin = lm(sqrt(mort_2012)~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend , data=evi_summary)
+summary(m_lin)
+m_lin = lm(sqrt(mort_2011)~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend , data=evi_summary)
+summary(m_lin)
 
 #####################
 # Make output plots
