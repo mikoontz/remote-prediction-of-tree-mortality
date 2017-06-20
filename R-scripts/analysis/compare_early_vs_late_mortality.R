@@ -112,8 +112,16 @@ dim(evi_summary)
 evi_points = rasterToPoints(evi_template)
 summary_points = evi_points[evi_summary$cell_number,1:2]
 evi_neigh = dnearneigh(summary_points, d1=100, d2=740, longlat=FALSE)
+mort_neigh = lapply(evi_neigh, f<- function(x){return(mean(evi_summary$mort_2011[x], na.rm=T))})
+evi_summary$mort_neigh_2011 = unlist(mort_neigh)
+mort_neigh = lapply(evi_neigh, f<- function(x){return(mean(evi_summary$mort_2012[x], na.rm=T))})
+evi_summary$mort_neigh_2012 = unlist(mort_neigh)
+mort_neigh = lapply(evi_neigh, f<- function(x){return(mean(evi_summary$mort_2013[x], na.rm=T))})
+evi_summary$mort_neigh_2013 = unlist(mort_neigh)
+mort_neigh = lapply(evi_neigh, f<- function(x){return(mean(evi_summary$mort_2014[x], na.rm=T))})
+evi_summary$mort_neigh_2014 = unlist(mort_neigh)
 mort_neigh = lapply(evi_neigh, f<- function(x){return(mean(evi_summary$mort_2015[x], na.rm=T))})
-evi_summary$mort_neigh = unlist(mort_neigh)
+evi_summary$mort_neigh_2015 = unlist(mort_neigh)
 hist(log(evi_summary$mort_neigh+0.1))
 
 
@@ -124,9 +132,103 @@ save(evi_summary, file="features/working-files/evi_summary_with_mort_PPN+SMC_jep
 ############################################
 # Do some simple regressions for different years
 
-### Run a simple model to check associations -- use tobit model in vgam library
+### standardize x matrix
 cols_to_standardize = c("evi_mean", "seas_change", "within_year_sd", "among_year_sd", "wet_dry_diff", "linear_trend")
 for (i in 1:length(cols_to_standardize)) evi_summary[,cols_to_standardize[i]] = scale(evi_summary[,cols_to_standardize[i]])
+
+# Weird outliers for wet_dry_diff -- toss these
+evi_summary$wet_dry_diff[evi_summary$wet_dry_diff < -5] = NA
+evi_summary = evi_summary[complete.cases(evi_summary),]
+
+
+### Check out shapes of responses
+m = gam(mort_2015_16~s(evi_mean)+s(seas_change)+wet_dry_diff+within_year_sd + s(among_year_sd)+s(linear_trend), data=evi_summary, trace=TRUE)
+summary(m)
+plot(m)
+ 
+# does adding lag help?
+m = gam(mort_2015_16~s(evi_mean)+s(seas_change)+wet_dry_diff+within_year_sd + s(among_year_sd)+s(linear_trend) , data=evi_summary, trace=TRUE)
+summary(m) 
+# not much 
+
+# does adding lagged local neighborhood help?
+m = gam(mort_2015_16~s(evi_mean)+s(seas_change)+wet_dry_diff+within_year_sd + s(among_year_sd)+s(linear_trend) +s(mort_neigh_2014), data=evi_summary, trace=TRUE)
+summary(m) 
+plot(m) # a little, but complex response shape looks overfitted
+
+### Convert this over to a tobit model
+m = vglm(mort_2015_16~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+I(wet_dry_diff^2)+within_year_sd + among_year_sd + I(among_year_sd^2)+linear_trend + I(linear_trend^2)+mort_neigh_2014, tobit, data=evi_summary, trace=TRUE)
+BIC(m) # full model plus neighborhood mortality has best BIC 
+summary(m)
+m0 = vglm(mort_2015_16~1, tobit, data=evi_summary, trace=TRUE)
+1 - (-2*logLik(m)) / (-2*logLik(m0))
+# Note wet_dry_diff matters in 2014, 2015 but not 2016
+
+# look at predictions 
+# Scatterplot
+mort_pred = predict(m, type="response")
+mort_pred[mort_pred<0] = 0
+plot(evi_summary$mort_2015_16~mort_pred)
+abline(0,1)
+
+# map
+par(mfrow=c(1,2))
+plot_to_region(sqrt(evi_summary$mort_2015_16), evi_summary$cell_number, subset_layer_albers)
+title("Sqrt observed mortality")
+# stupid hack to get the same color scale in both plots
+mort_pred[1] = max(evi_summary$mort_2015_16)
+plot_to_region(sqrt(mort_pred), evi_summary$cell_number,subset_layer_albers)
+title("Sqrt model fit")
+
+
+### Convert this over to a hurdle model
+
+# Define mortality year(s) and threshold
+evi_summary$mort = evi_summary$mort_2015+evi_summary$mort_2016
+evi_summary$mort_pa = as.integer((evi_summary$mort)>1) # set threshold: 1 is 1 tree per year per acre
+sum(evi_summary$mort_pa)/nrow(evi_summary)
+
+# Presence or absence of mortality
+m.pa = glm(mort_pa~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+I(wet_dry_diff^2)+within_year_sd + among_year_sd + I(among_year_sd^2)+linear_trend + I(linear_trend^2), data=evi_summary, family="binomial")
+summary(m.pa)
+# pct deviance explained
+m0.pa = glm(mort_pa~1, data=evi_summary, family="binomial")
+1 - (-2*logLik(m.pa)[1]) / (-2*logLik(m0.pa)[1]) # a lot -- 24%
+# ROC AUC
+colAUC(fitted(m.pa), evi_summary$mort_pa)
+
+
+
+# Amount of mortality, given mortality occurred
+m.dens = lm(sqrt(mort)~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend, data=evi_summary, subset=evi_summary$mort_pa==1)
+summary(m.dens)
+# R2 is pretty weak -- 0.08
+
+# map of presence absence
+par(mfrow=c(1,2))
+plot_to_region(evi_summary$mort_pa, evi_summary$cell_number, subset_layer_albers)
+title("observed mortality (pres/abs)")
+plot_to_region(fitted(m.pa), evi_summary$cell_number,subset_layer_albers)
+title("model fit (prob. mortality)")
+
+# map of amount of mortality, given present
+par(mfrow=c(1,2)) 
+plot_to_region(sqrt(evi_summary$mort_2015_16), evi_summary$cell_number, subset_layer_albers)
+title("observed mortality")
+mort_pred  = fitted(m.dens)
+mort_pred[1] = max(sqrt(evi_summary$mort_2015_16))
+plot_to_region(mort_pred, evi_summary$cell_number,subset_layer_albers)
+title("model fit")
+
+
+
+
+
+
+
+
+
+
 
 # fit model
 m = vglm(mort_2011~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend, tobit, data=evi_summary, trace=TRUE)
@@ -184,7 +286,12 @@ summary(m_lin) # neighborhood effect signif but not very explanatory, mostly it'
 
 
 ###############################################################
-# Logit models for presence/absence of mortality
+# Hurdle model for presence/absence of mortality, then for amount where it occurs
+
+# Define mortality year(s) and threshold
+evi_summary$mort = evi_summary$mort_2015+evi_summary$mort_2016
+evi_summary$mort_pa = as.integer((evi_summary$mort)>1) # set threshold: 1 is 1 tree per year per acre
+sum(evi_summary$mort_pa)/nrow(evi_summary)
 
 # standardize variables if not yet standardized
 if (!exists("cols_to_standardize")) {
@@ -192,7 +299,17 @@ if (!exists("cols_to_standardize")) {
   for (i in 1:length(cols_to_standardize)) evi_summary[,cols_to_standardize[i]] = scale(evi_summary[,cols_to_standardize[i]])
 }
 
+# Presence or absence of mortality
+m.pa = glm(mort_pa~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend+mort_neigh+mort_2014, data=evi_summary, family="binomial", link="probit")
+summary(m.pa)
+# probit version
+m.dens = glm(mort_pa~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend+mort_2014, data=evi_summary, family=binomial(link="logit"))
+summary(m.dens)
+colAUC(fitted(m.dens), evi_summary$mort_pa)
 
+# Amount of mortality, given mortality occurred
+m.dens = lm(sqrt(mort)~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend, data=evi_summary, subset=evi_summary$mort_pa==1)
+summary(m.dens)
 
 
 
@@ -264,6 +381,8 @@ title("Sqrt observed mortality")
 mort_pred[1] = sqrt(max(evi_summary$mort))
 plot_to_region(mort_pred[!is.na(evi_summary$mort)], evi_summary$cell_number[!is.na(evi_summary$mort)],subset_layer_albers)
 title("Sqrt model fit")
+
+
 
 
 
