@@ -84,13 +84,6 @@ mort_2015_albers[which(getValues(mort_2015_albers)<0)] = 0
 mort_2016_albers[which(getValues(mort_2016_albers)<0)] = 0
 
 
-# create a variable that describes average mortality in a grid cell's neighbors
-evi_points = rasterToPoints(evi_template)
-summary_points = evi_points[evi_summary$cell_number,1:2]
-evi_neigh = dnearneigh(summary_points, d1=100, d2=740, longlat=FALSE)
-mort_neigh = lapply(evi_neigh, f<- function(x){return(mean(evi_summary$mort_2014[x], na.rm=T))})
-evi_summary$mort_neigh = unlist(mort_neigh)
-hist(log(evi_summary$mort_neigh+0.1))
 
 ######################################################
 # Explore summaries of EVI time series
@@ -114,6 +107,15 @@ evi_summary$mort_2016 = getValues(mort_2016_masked)[evi_summary$cell_number]
 # Clean out NAs
 evi_summary = evi_summary[complete.cases(evi_summary),]
 dim(evi_summary)
+
+# create a variable that describes average mortality in a grid cell's neighbors
+evi_points = rasterToPoints(evi_template)
+summary_points = evi_points[evi_summary$cell_number,1:2]
+evi_neigh = dnearneigh(summary_points, d1=100, d2=740, longlat=FALSE)
+mort_neigh = lapply(evi_neigh, f<- function(x){return(mean(evi_summary$mort_2015[x], na.rm=T))})
+evi_summary$mort_neigh = unlist(mort_neigh)
+hist(log(evi_summary$mort_neigh+0.1))
+
 
 # Store intermediate file 
 save(evi_summary, file="features/working-files/evi_summary_with_mort_PPN+SMC_jepson_central+south.Rdata")
@@ -140,6 +142,16 @@ summary(m)
 m = vglm(mort_2016~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend, tobit, data=evi_summary, trace=TRUE)
 summary(m)
 
+# Test for neighborhood effect from 2013
+m = vglm(mort_2014~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend, tobit, data=evi_summary, trace=TRUE)
+summary(m)
+m = vglm(mort_2014~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend+sqrt(mort_neigh), tobit, data=evi_summary, trace=TRUE)
+summary(m) # vastly better with neighborhood effect
+m = vglm(mort_2015~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend+sqrt(mort_neigh), tobit, data=evi_summary, trace=TRUE)
+summary(m) # weak neighborhood effect
+m = vglm(mort_2016~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend+sqrt(mort_neigh), tobit, data=evi_summary, trace=TRUE)
+summary(m) # weirdly neighborhood effect is strong again
+
 barplot(coef(m)[3:8], horiz=T, las=2, main="tobit model coefficients", col=ifelse(coef(m)[3:8]<0, "red", "blue"), cex.names=0.5)
 
 plot(evi_summary$mort[!is.na(evi_summary$mort)]~predict(m, type="response"))
@@ -158,6 +170,35 @@ m_lin = lm(sqrt(mort_2012)~evi_mean+seas_change+wet_dry_diff+within_year_sd + am
 summary(m_lin)
 m_lin = lm(sqrt(mort_2011)~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend , data=evi_summary)
 summary(m_lin)
+
+# Linear version with neighborhood effect
+m_lin = lm(sqrt(mort_2014)~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend+sqrt(mort_neigh), data=evi_summary)
+summary(m_lin) # neighborhood effect is large, but doesn't explain much variation
+m_lin = lm(sqrt(mort_2015)~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend +sqrt(mort_neigh), data=evi_summary)
+summary(m_lin) # no neighborhood effect
+m_lin = lm(sqrt(mort_2016)~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend +sqrt(mort_neigh), data=evi_summary)
+summary(m_lin) # neighborhood effect signif but not very explanatory, mostly it's climate
+
+
+
+
+
+###############################################################
+# Logit models for presence/absence of mortality
+
+# standardize variables if not yet standardized
+if (!exists("cols_to_standardize")) {
+  cols_to_standardize = c("evi_mean", "seas_change", "within_year_sd", "among_year_sd", "wet_dry_diff", "linear_trend")
+  for (i in 1:length(cols_to_standardize)) evi_summary[,cols_to_standardize[i]] = scale(evi_summary[,cols_to_standardize[i]])
+}
+
+
+
+
+
+
+
+
 
 #####################
 # Make output plots
