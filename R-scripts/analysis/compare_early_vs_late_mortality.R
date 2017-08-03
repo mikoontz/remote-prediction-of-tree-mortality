@@ -15,6 +15,7 @@ library(VGAM)
 library(viridis)
 library(car)
 library(spdep)
+library(mgcv)
 
 # Enter the locations of files to work with 
 # geotifs are the MODIS EVI data that Mike K exported from Google Earth Engine, they are stored in a single folder (geotif_folder) and are all names consistently with the prefix geotif_filename and a date code. 
@@ -142,13 +143,15 @@ evi_summary = evi_summary[complete.cases(evi_summary),]
 
 
 ### Check out shapes of responses
+# Combine the 2 major mortality years
+evi_summary$mort_2015_16 = evi_summary$mort_2015 + evi_summary$mort_2016
 m = gam(mort_2015_16~s(evi_mean)+s(seas_change)+wet_dry_diff+within_year_sd + s(among_year_sd)+s(linear_trend), data=evi_summary, trace=TRUE)
 summary(m)
 plot(m)
  
 # does adding lag help?
 m = gam(mort_2015_16~s(evi_mean)+s(seas_change)+wet_dry_diff+within_year_sd + s(among_year_sd)+s(linear_trend) , data=evi_summary, trace=TRUE)
-summary(m) 
+summary(m)
 # not much 
 
 # does adding lagged local neighborhood help?
@@ -161,17 +164,25 @@ m = vglm(mort_2015_16~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+we
 BIC(m) # full model plus neighborhood mortality has best BIC 
 summary(m)
 m0 = vglm(mort_2015_16~1, tobit, data=evi_summary, trace=TRUE)
-1 - (-2*logLik(m)) / (-2*logLik(m0))
+1 - (-2*logLik(m)) / (-2*logLik(m0)) # terrible pct dev explained for 2015-16, pretty good for 2014!
+
 # Note wet_dry_diff matters in 2014, 2015 but not 2016
 
 # look at predictions 
 # Scatterplot
 mort_pred = predict(m, type="response")
 mort_pred[mort_pred<0] = 0
-plot(evi_summary$mort_2015_16~mort_pred)
+plot(evi_summary$mort_2014~mort_pred)
 abline(0,1)
 
 # map
+plot_to_region <- function(cell.values, cell.index, crop_layer) { # index is the row numbers of the cells to plot, and indexes grid cells in the original evi_template
+  r_tmp = evi_template
+  r_tmp = setValues(r_tmp, rep(NA, length(r_tmp)))
+  r_tmp[cell.index] = cell.values
+  r_plot = crop(r_tmp, crop_layer)
+  plot(r_plot,col= rev(viridis(16)))#tim.colors(16)) #
+}
 par(mfrow=c(1,2))
 plot_to_region(sqrt(evi_summary$mort_2015_16), evi_summary$cell_number, subset_layer_albers)
 title("Sqrt observed mortality")
@@ -180,12 +191,23 @@ mort_pred[1] = max(evi_summary$mort_2015_16)
 plot_to_region(sqrt(mort_pred), evi_summary$cell_number,subset_layer_albers)
 title("Sqrt model fit")
 
+plot_to_region(mort_pred-evi_summary$mort_2015_16, evi_summary$cell_number, subset_layer_albers)
+
+###########
+# For presentation perhaps stop here with modeling. 
+# Then talk about implications by showing maps of the "important" explanatory variables and what they might indicate. 
+# Compare "early" drought response in 2014 (pretty predictable, relates to past sensitivity of forest patches to dry years, and to seasonal dry-down). 
+# To the later "extreme" drought mortality of 2015-16 (not very predictable except in broad terms, possibly due to beetle population dynamics, but also possibly to finer-scale factors that aren't in this analysis)
+# About beetle dynamics: ask if adding in a forest heterogeneity layer (from Mike) improves prediction. The expectationis that it does, because heterogeneity at some intermediate scale should moderate impacts of beetles as well as fire. Though possibly there is an exception in extreme conditions whereby the fire generates its own weather/wind and where the beetles switch to different attack behavior. 
+
+
+
 
 ### Convert this over to a hurdle model
 
 # Define mortality year(s) and threshold
 evi_summary$mort = evi_summary$mort_2015+evi_summary$mort_2016
-evi_summary$mort_pa = as.integer((evi_summary$mort)>1) # set threshold: 1 is 1 tree per year per acre
+evi_summary$mort_pa = as.integer((evi_summary$mort)>0.1) # set threshold: 1 is 1 tree per year per acre
 sum(evi_summary$mort_pa)/nrow(evi_summary)
 
 # Presence or absence of mortality
@@ -197,12 +219,17 @@ m0.pa = glm(mort_pa~1, data=evi_summary, family="binomial")
 # ROC AUC
 colAUC(fitted(m.pa), evi_summary$mort_pa)
 
-
+# plot coefs
+barplot(coef(m.pa)[2:16], horiz=T, las=2, main="binomial model coefficients", col=ifelse(coef(m.pa)[2:16]<0, "red", "blue"), cex.names=0.5)
 
 # Amount of mortality, given mortality occurred
-m.dens = lm(sqrt(mort)~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend, data=evi_summary, subset=evi_summary$mort_pa==1)
+m.dens = lm(sqrt(mort)~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+I(wet_dry_diff^2)+within_year_sd + among_year_sd + I(among_year_sd^2)+linear_trend + I(linear_trend^2), data=evi_summary, subset=evi_summary$mort_pa==1)
 summary(m.dens)
-# R2 is pretty weak -- 0.08
+# R2 is pretty weak -- 0.11
+
+# plot coefs
+barplot(coef(m.dens)[2:16], horiz=T, las=2, main="linear model coefficients", col=ifelse(coef(m.dens)[2:16]<0, "red", "blue"), cex.names=0.5)
+
 
 # map of presence absence
 par(mfrow=c(1,2))
@@ -214,7 +241,7 @@ title("model fit (prob. mortality)")
 # map of amount of mortality, given present
 par(mfrow=c(1,2)) 
 plot_to_region(sqrt(evi_summary$mort_2015_16), evi_summary$cell_number, subset_layer_albers)
-title("observed mortality")
+title("sqrt observed mortality (TPA)")
 mort_pred  = fitted(m.dens)
 mort_pred[1] = max(sqrt(evi_summary$mort_2015_16))
 plot_to_region(mort_pred, evi_summary$cell_number,subset_layer_albers)
@@ -254,7 +281,7 @@ summary(m) # weak neighborhood effect
 m = vglm(mort_2016~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend+sqrt(mort_neigh), tobit, data=evi_summary, trace=TRUE)
 summary(m) # weirdly neighborhood effect is strong again
 
-barplot(coef(m)[3:8], horiz=T, las=2, main="tobit model coefficients", col=ifelse(coef(m)[3:8]<0, "red", "blue"), cex.names=0.5)
+barplot(coef(m)[3:15], horiz=T, las=2, main="tobit model coefficients", col=ifelse(coef(m)[3:8]<0, "red", "blue"), cex.names=0.5)
 
 plot(evi_summary$mort[!is.na(evi_summary$mort)]~predict(m, type="response"))
 abline(0,1)
@@ -325,7 +352,7 @@ plot_to_region <- function(cell.values, cell.index, crop_layer) { # index is the
   r_tmp = setValues(r_tmp, rep(NA, length(r_tmp)))
   r_tmp[cell.index] = cell.values
   r_plot = crop(r_tmp, crop_layer)
-  plot(r_plot,col=tim.colors(16))#col=viridis(10))
+  plot(r_plot,col=tim.colors(16))#col=viridis(16))#
 }
 
 
@@ -343,6 +370,11 @@ plot_to_region(evi_summary$seas_change, evi_summary$cell_number, subset_layer_al
 plot_to_region(sqrt(evi_summary$among_year_var-min(evi_summary$among_year_var)), evi_summary$cell_number, subset_layer_albers); title("among-year sd")
 plot_to_region(evi_summary$linear_trend, evi_summary$cell_number, subset_layer_albers); title("linear trend in EVI", cex.main=0.7)
 plot_to_region(evi_summary$wet_dry_diff, evi_summary$cell_number, subset_layer_albers); title("Wet-year mean EVI minus dry-year mean EVI", cex.main=0.7)
+
+# Here the mean EVI, seasonal diff, and wet-dry diff are most interesting, esp if shown in extreme colors that highlight negative vs positive values 
+# A lot of the prediction amounts to the sensitivity plus the mean layers. 
+# What still needs to be done: some kind of interpretation of what these are reflecting -- e.g. type of veg, growing season patterns / phenology at different elevations and possibly different parts of the region. Possibly different local drought intensity differences? Forest density differences? 
+# Maybe check simple correlations with density, elevation, drought intensity, and also visually compare with a forest-type map. 
 
 # observed and predicted mortality 
 mort_pred = fitted(m)
