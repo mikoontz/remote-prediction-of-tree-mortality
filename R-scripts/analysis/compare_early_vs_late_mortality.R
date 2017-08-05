@@ -162,8 +162,8 @@ summary(m3)
 plot(m3) # a little, at very high mortality levels 
 
 ### Convert this over to a tobit model for 2014
-#m = vglm(mort_2014~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+I(wet_dry_diff^2)+within_year_sd + among_year_sd + I(among_year_sd^2)+linear_trend + I(linear_trend^2)+mort_neigh_2013, tobit, data=evi_summary, trace=TRUE)
-m = vglm(mort_2014~evi_mean+I(evi_mean^2) + seas_change +wet_dry_diff+within_year_sd +mort_neigh_2013, tobit, data=evi_summary, trace=TRUE)
+m = vglm(mort_2014~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+I(wet_dry_diff^2)+within_year_sd+linear_trend + I(linear_trend^2)+mort_neigh_2013, tobit, data=evi_summary, trace=TRUE)
+#m = vglm(mort_2014~evi_mean+I(evi_mean^2) + seas_change +wet_dry_diff+within_year_sd +mort_neigh_2013, tobit, data=evi_summary, trace=TRUE)
 BIC(m) # full model plus neighborhood mortality has best BIC 
 summary(m)
 m0 = vglm(mort_2014~1, tobit, data=evi_summary, trace=TRUE)
@@ -171,16 +171,16 @@ m0 = vglm(mort_2014~1, tobit, data=evi_summary, trace=TRUE)
 
 
 # PLot model coefficients
-barplot(coef(m)[3:8], horiz=T, las=2, main="Tobit model coefficients", col=ifelse(coef(m)[3:14]<0, "red", "blue"), cex.names=0.5)
+barplot(coef(m)[3:length(coef(m))], horiz=T, las=2, main="Tobit model coefficients", col=ifelse(coef(m)[3:length(coef(m))]<0, "red", "blue"), cex.names=0.5)
 
 
 ### Convert this over to a tobit model  for 2015-16
-#m = vglm(mort_2014~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+I(wet_dry_diff^2)+within_year_sd + among_year_sd + I(among_year_sd^2)+linear_trend + I(linear_trend^2)+mort_neigh_2013, tobit, data=evi_summary, trace=TRUE)
-m = vglm(mort_2014~evi_mean+I(evi_mean^2) + seas_change +wet_dry_diff+within_year_sd +mort_neigh_2013, tobit, data=evi_summary, trace=TRUE)
+m = vglm(mort_2015_16~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+I(wet_dry_diff^2)+within_year_sd +linear_trend + I(linear_trend^2)+mort_neigh_2014, tobit, data=evi_summary, trace=TRUE)
 BIC(m) # full model plus neighborhood mortality has best BIC 
 summary(m)
-m0 = vglm(mort_2014~1, tobit, data=evi_summary, trace=TRUE)
+m0 = vglm(mort_2015_16~1, tobit, data=evi_summary, trace=TRUE)
 1 - (-2*logLik(m)) / (-2*logLik(m0))
+barplot(coef(m)[3:length(coef(m))], horiz=T, las=2, main="Tobit model coefficients", col=ifelse(coef(m)[3:length(coef(m))]<0, "red", "blue"), cex.names=0.5)
 
 
 
