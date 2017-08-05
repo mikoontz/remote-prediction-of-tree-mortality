@@ -34,7 +34,7 @@ dates = strptime(date_codes, "%Y%m%d")
 evi_template = raster("features/sierra-nevada-250m-evi-template.tif")
 
 # check that template includes the same region as the first evi data raster
-#evi_000 = raster("features/ee-sn_jep_modis_ts_quality_mask_epsg3310/sn_jep_modis_ts_quality_mask_epsg3310_000_20000218.tif")
+#evi_000 = raster("features/ee-sn_jep_modis_ts_quality_mask_epsg3310/sn_jep_modis_ts_quality_mask_epsg3310_172_20070813.tif")
 #sn = shapefile("features/SierraEcoregion_Jepson/SierraEcoregion_Jepson.shp")
 #sn = spTransform(sn, albers.proj)
 #cells_in_region = extract(evi_template, sn, cellnumbers=T)[[1]]
@@ -47,6 +47,12 @@ evi_template = raster("features/sierra-nevada-250m-evi-template.tif")
 #unique(vals_outside_region2)
 # results: almost identical, but there are a few cells that "leak out" of the sierra nevada polygon presumably as a result of reprojection. 
 #rm(evi_000)
+
+# Plot example EVI layer before further masking
+evi_000 = raster("features/ee-sn_jep_modis_ts_quality_mask_epsg3310/sn_jep_modis_ts_quality_mask_epsg3310_172_20070813.tif")
+evi_000[evi_000<=0] = NA
+plot(evi_000, col=rev(viridis(16)),bty="n", box=FALSE, xaxt="n", yaxt="n", legend=FALSE)
+
 
 # load one mortality layer as a template
 mort_template = raster("features/ADS-rasterized/Y2015_sp122.tif")
@@ -66,6 +72,14 @@ target_pixels[is.na(target_pixels)] = 0
 subset_layer = shapefile("features/jepson-central+southern-outline.shp")
 subset_layer_albers = spTransform(subset_layer, albers.proj)
 target_pixels = mask(target_pixels, subset_layer_albers, updatevalue=0)
+
+# Plot to show this geographic subsetting
+plot(evi_template, bty="n", box=FALSE, xaxt="n", yaxt="n", legend=FALSE)
+plot(subset_layer_albers, add=T, col="darkblue")
+
+# Plot to also show forest type subsetting =
+plot(target_pixels, bty="n", box=FALSE, xaxt="n", yaxt="n", legend=FALSE)
+
 
 # Reproject mortality raster to match the EVI geotiffs (in Albers projection). 
 # Note target veg raster is already in this projection. 
@@ -141,6 +155,25 @@ object.size(evi_mat)
 evi_mat = evi_mat/10000 # rescale to standard EVI values
 
 save(evi_mat, file="features/working-files/evi_data_matrix_jepson_PPN+SMC_central+south.Rdata")
+
+
+# Plot recent fires to show masking for disturbance
+fire_mask = fire_dates
+fire_mask[fire_dates<2000] = 0
+plot(fire_mask, col=rev(heat.colors(16)), bty="n", box=FALSE, xaxt="n", yaxt="n", legend=FALSE)
+# Same for management
+mgt_mask = mgt_dates
+mgt_mask[mgt_dates<2000] = NA
+plot(mgt_mask, col=rev(viridis(16)), bty="n", box=FALSE, xaxt="n", yaxt="n", legend=FALSE)
+# Same for forest type
+forest_mask = target_cover
+forest_mask[target_cover<80] = NA
+forest_mask[target_cover>=80] = 1
+plot(forest_mask, col=rev(viridis(16)), bty="n", box=FALSE, xaxt="n", yaxt="n", legend=FALSE)
+# Plot to show what resulting data looks like 
+plot_to_region(rep(1, length(evi_summary$cell_number)), evi_summary$cell_number,subset_layer_albers)
+
+
 
 
 
@@ -285,7 +318,7 @@ plot_to_region <- function(cell.values, cell.index, crop_layer) { # index is the
   r_tmp = setValues(r_tmp, rep(NA, length(r_tmp)))
   r_tmp[cell.index] = cell.values
   r_plot = crop(r_tmp, crop_layer)
-  plot(r_plot,col=tim.colors(16))#col=viridis(10))
+  plot(r_plot,col=viridis(10))#col=tim.colors(16))
 }
 
 
