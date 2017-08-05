@@ -110,6 +110,8 @@ evi_summary = evi_summary[complete.cases(evi_summary),]
 dim(evi_summary)
 
 # create a variable that describes average mortality in a grid cell's neighbors
+maxdist = 740 # set size of neighborhood -- started with 740 for small neighborhood
+              # results below don't seem different when this is increased to 1480
 evi_points = rasterToPoints(evi_template)
 summary_points = evi_points[evi_summary$cell_number,1:2]
 evi_neigh = dnearneigh(summary_points, d1=100, d2=740, longlat=FALSE)
@@ -123,8 +125,6 @@ mort_neigh = lapply(evi_neigh, f<- function(x){return(mean(evi_summary$mort_2014
 evi_summary$mort_neigh_2014 = unlist(mort_neigh)
 mort_neigh = lapply(evi_neigh, f<- function(x){return(mean(evi_summary$mort_2015[x], na.rm=T))})
 evi_summary$mort_neigh_2015 = unlist(mort_neigh)
-hist(log(evi_summary$mort_neigh+0.1))
-
 
 # Store intermediate file 
 save(evi_summary, file="features/working-files/evi_summary_with_mort_PPN+SMC_jepson_central+south.Rdata")
@@ -145,23 +145,24 @@ evi_summary = evi_summary[complete.cases(evi_summary),]
 ### Check out shapes of responses
 # Combine the 2 major mortality years
 evi_summary$mort_2015_16 = evi_summary$mort_2015 + evi_summary$mort_2016
-m = gam(mort_2015_16~s(evi_mean)+s(seas_change)+wet_dry_diff+within_year_sd + s(among_year_sd)+s(linear_trend), data=evi_summary, trace=TRUE)
-summary(m)
+
+# fit gam model to look at response shapes
+m1 = gam(mort_2015_16~s(evi_mean)+s(seas_change)+wet_dry_diff+within_year_sd + s(among_year_sd)+s(linear_trend), data=evi_summary, trace=TRUE)
+summary(m1)
 plot(m)
  
 # does adding lag help?
-m = gam(mort_2015_16~s(evi_mean)+s(seas_change)+wet_dry_diff+within_year_sd + s(among_year_sd)+s(linear_trend) , data=evi_summary, trace=TRUE)
-summary(m)
-
+m2 = gam(mort_2015_16~s(evi_mean)+s(seas_change)+wet_dry_diff+within_year_sd + s(among_year_sd)+s(linear_trend) + s(mort_2014), data=evi_summary, trace=TRUE)
+summary(m2)
 # not much 
 
 # does adding lagged local neighborhood help?
-m = gam(mort_2015_16~s(evi_mean)+s(seas_change)+wet_dry_diff+within_year_sd + s(among_year_sd)+s(linear_trend) +s(mort_neigh_2014), data=evi_summary, trace=TRUE)
-summary(m) 
-plot(m) # a little, at very high mortality levels 
+m3 = gam(mort_2015_16~s(evi_mean)+s(seas_change)+wet_dry_diff+within_year_sd + s(among_year_sd)+s(linear_trend) +s(mort_neigh_2014), data=evi_summary, trace=TRUE)
+summary(m3) 
+plot(m3) # a little, at very high mortality levels 
 
 ### Convert this over to a tobit model
-m = vglm(mort_2014~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+I(wet_dry_diff^2)+within_year_sd + among_year_sd + I(among_year_sd^2)+linear_trend + I(linear_trend^2)+mort_neigh_2014, tobit, data=evi_summary, trace=TRUE)
+m = vglm(mort_2015_16~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+I(wet_dry_diff^2)+within_year_sd + among_year_sd + I(among_year_sd^2)+linear_trend + I(linear_trend^2)+mort_neigh_2014, tobit, data=evi_summary, trace=TRUE)
 BIC(m) # full model plus neighborhood mortality has best BIC 
 summary(m)
 m0 = vglm(mort_2014~1, tobit, data=evi_summary, trace=TRUE)
