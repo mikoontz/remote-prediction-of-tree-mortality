@@ -196,7 +196,10 @@ startyear = 2000
 endyear = 2013
 evi_months = c(4,5,6,7,8) # which months -- note month numbers are 0-11
 time_index = as.integer(which(dates$mon %in% evi_months & dates$year <= (endyear-1900) & dates$year >= (startyear-1900)))
-plot(evi_mat[10,time_index])
+plot(evi_mat[101,], type="l", col="darkgreen", lwd=2, ylab="EVI", xlab ="Time step")
+plot(evi_mat[101,time_index], type="l", col="darkgreen", lwd=2)
+par(mfrow=c(5,5), mar=rep(0.5, 4))
+for(i in 1:25) plot(evi_mat[sample(1:nrow(evi_mat), size=1),], xaxt="n", yaxt="n", xlab="", ylab="", type="l", col="darkgreen", lwd=2)
 
 
 ### Make single-number summaries of EVI time series and store in data frame

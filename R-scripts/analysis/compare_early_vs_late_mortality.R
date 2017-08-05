@@ -161,12 +161,28 @@ m3 = gam(mort_2015_16~s(evi_mean)+s(seas_change)+wet_dry_diff+within_year_sd + s
 summary(m3) 
 plot(m3) # a little, at very high mortality levels 
 
-### Convert this over to a tobit model
-m = vglm(mort_2015_16~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+I(wet_dry_diff^2)+within_year_sd + among_year_sd + I(among_year_sd^2)+linear_trend + I(linear_trend^2)+mort_neigh_2014, tobit, data=evi_summary, trace=TRUE)
+### Convert this over to a tobit model for 2014
+#m = vglm(mort_2014~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+I(wet_dry_diff^2)+within_year_sd + among_year_sd + I(among_year_sd^2)+linear_trend + I(linear_trend^2)+mort_neigh_2013, tobit, data=evi_summary, trace=TRUE)
+m = vglm(mort_2014~evi_mean+I(evi_mean^2) + seas_change +wet_dry_diff+within_year_sd +mort_neigh_2013, tobit, data=evi_summary, trace=TRUE)
 BIC(m) # full model plus neighborhood mortality has best BIC 
 summary(m)
 m0 = vglm(mort_2014~1, tobit, data=evi_summary, trace=TRUE)
-1 - (-2*logLik(m)) / (-2*logLik(m0)) # terrible pct dev explained for 2015-16, pretty good for 2014!
+1 - (-2*logLik(m)) / (-2*logLik(m0))
+
+
+# PLot model coefficients
+barplot(coef(m)[3:8], horiz=T, las=2, main="Tobit model coefficients", col=ifelse(coef(m)[3:14]<0, "red", "blue"), cex.names=0.5)
+
+
+### Convert this over to a tobit model  for 2015-16
+#m = vglm(mort_2014~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+I(wet_dry_diff^2)+within_year_sd + among_year_sd + I(among_year_sd^2)+linear_trend + I(linear_trend^2)+mort_neigh_2013, tobit, data=evi_summary, trace=TRUE)
+m = vglm(mort_2014~evi_mean+I(evi_mean^2) + seas_change +wet_dry_diff+within_year_sd +mort_neigh_2013, tobit, data=evi_summary, trace=TRUE)
+BIC(m) # full model plus neighborhood mortality has best BIC 
+summary(m)
+m0 = vglm(mort_2014~1, tobit, data=evi_summary, trace=TRUE)
+1 - (-2*logLik(m)) / (-2*logLik(m0))
+
+
 
 # Note wet_dry_diff matters in 2014, 2015 but not 2016
 
@@ -351,10 +367,11 @@ summary(m.dens)
 
 plot_to_region <- function(cell.values, cell.index, crop_layer) { # index is the row numbers of the cells to plot, and indexes grid cells in the original evi_template
   r_tmp = evi_template
+  plot(subset_layer_albers, col=gray(0.9), lty=0)
   r_tmp = setValues(r_tmp, rep(NA, length(r_tmp)))
   r_tmp[cell.index] = cell.values
   r_plot = crop(r_tmp, crop_layer)
-  plot(r_plot,col=tim.colors(16))#col=viridis(16))#
+  plot(r_plot,col=tim.colors(16), add=T)#col=viridis(16))#
 }
 
 
@@ -372,6 +389,7 @@ plot_to_region(evi_summary$seas_change, evi_summary$cell_number, subset_layer_al
 plot_to_region(sqrt(evi_summary$among_year_var-min(evi_summary$among_year_var)), evi_summary$cell_number, subset_layer_albers); title("among-year sd")
 plot_to_region(evi_summary$linear_trend, evi_summary$cell_number, subset_layer_albers); title("linear trend in EVI", cex.main=0.7)
 plot_to_region(evi_summary$wet_dry_diff, evi_summary$cell_number, subset_layer_albers); title("Wet-year mean EVI minus dry-year mean EVI", cex.main=0.7)
+plot_to_region(sqrt(evi_summary$mort_neigh_2014), evi_summary$cell_number, subset_layer_albers); title("Neighboring mortality in 2014", cex.main=0.7)
 
 # Here the mean EVI, seasonal diff, and wet-dry diff are most interesting, esp if shown in extreme colors that highlight negative vs positive values 
 # A lot of the prediction amounts to the sensitivity plus the mean layers. 
@@ -396,7 +414,7 @@ for (i in 1:16) plot(evi_mat[sample(1:nrow(evi_mat), 1),dates$mon %in% c(5,6,7,8
 # all pixels averaged
 evi_mean_all = apply(evi_mat, 2, mean, na.rm=T)
 # long time series
-plot(evi_mean_all, ylim=c(0.2, 0.5), type="l",lwd=2, col="cyan4")
+plot(evi_mean_all, ylim=c(0.2, 0.4), type="l",lwd=2, col="cyan4", ylab="Regional mean EVI",xlab="Time step", cex.axis=1.1, cex.lab=1.5)
 # I'd say this shows that 2013 was low, clearly a drought year, but not out of the normal range for the rest of the years. So for model fitting, seems ok to go through 2013. The later years are drastically low, esp 2016. Will be interesting to see the rebound in 2017, if any. 
 # plotting the spatial average for each year. 
 plot(evi_mean_all[dates$year==100]~dates$yday[dates$year==100], type="l", lwd=2, col="cyan4", ylim=c(0.2, 0.5))
