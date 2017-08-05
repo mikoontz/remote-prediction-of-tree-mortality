@@ -152,18 +152,19 @@ plot(m)
 # does adding lag help?
 m = gam(mort_2015_16~s(evi_mean)+s(seas_change)+wet_dry_diff+within_year_sd + s(among_year_sd)+s(linear_trend) , data=evi_summary, trace=TRUE)
 summary(m)
+
 # not much 
 
 # does adding lagged local neighborhood help?
 m = gam(mort_2015_16~s(evi_mean)+s(seas_change)+wet_dry_diff+within_year_sd + s(among_year_sd)+s(linear_trend) +s(mort_neigh_2014), data=evi_summary, trace=TRUE)
 summary(m) 
-plot(m) # a little, but complex response shape looks overfitted
+plot(m) # a little, at very high mortality levels 
 
 ### Convert this over to a tobit model
-m = vglm(mort_2015_16~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+I(wet_dry_diff^2)+within_year_sd + among_year_sd + I(among_year_sd^2)+linear_trend + I(linear_trend^2)+mort_neigh_2014, tobit, data=evi_summary, trace=TRUE)
+m = vglm(mort_2014~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+I(wet_dry_diff^2)+within_year_sd + among_year_sd + I(among_year_sd^2)+linear_trend + I(linear_trend^2)+mort_neigh_2014, tobit, data=evi_summary, trace=TRUE)
 BIC(m) # full model plus neighborhood mortality has best BIC 
 summary(m)
-m0 = vglm(mort_2015_16~1, tobit, data=evi_summary, trace=TRUE)
+m0 = vglm(mort_2014~1, tobit, data=evi_summary, trace=TRUE)
 1 - (-2*logLik(m)) / (-2*logLik(m0)) # terrible pct dev explained for 2015-16, pretty good for 2014!
 
 # Note wet_dry_diff matters in 2014, 2015 but not 2016
@@ -184,14 +185,14 @@ plot_to_region <- function(cell.values, cell.index, crop_layer) { # index is the
   plot(r_plot,col= rev(viridis(16)))#tim.colors(16)) #
 }
 par(mfrow=c(1,2))
-plot_to_region(sqrt(evi_summary$mort_2015_16), evi_summary$cell_number, subset_layer_albers)
+plot_to_region(sqrt(evi_summary$mort_2014), evi_summary$cell_number, subset_layer_albers)
 title("Sqrt observed mortality")
 # stupid hack to get the same color scale in both plots
-mort_pred[1] = max(evi_summary$mort_2015_16)
+mort_pred[1] = max(evi_summary$mort_2014)
 plot_to_region(sqrt(mort_pred), evi_summary$cell_number,subset_layer_albers)
 title("Sqrt model fit")
 
-plot_to_region(mort_pred-evi_summary$mort_2015_16, evi_summary$cell_number, subset_layer_albers)
+plot_to_region(mort_pred-evi_summary$mort_2014, evi_summary$cell_number, subset_layer_albers)
 
 ###########
 # For presentation perhaps stop here with modeling. 
