@@ -145,6 +145,9 @@ evi_summary = evi_summary[complete.cases(evi_summary),]
 ### Check out shapes of responses
 # Combine the 2 major mortality years
 evi_summary$mort_2015_16 = evi_summary$mort_2015 + evi_summary$mort_2016
+# Combine 2014-16
+evi_summary$mort_2014_16 = evi_summary$mort_2015+evi_summary$mort_2015 + evi_summary$mort_2016
+
 
 # fit gam model to look at response shapes
 m1 = gam(mort_2015_16~s(evi_mean)+s(seas_change)+wet_dry_diff+within_year_sd + s(among_year_sd)+s(linear_trend), data=evi_summary, trace=TRUE)
@@ -175,13 +178,21 @@ barplot(coef(m)[3:length(coef(m))], horiz=T, las=2, main="Tobit model coefficien
 
 
 ### Convert this over to a tobit model  for 2015-16
-m = vglm(mort_2015_16~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+I(wet_dry_diff^2)+within_year_sd +linear_trend + I(linear_trend^2)+mort_neigh_2014, tobit, data=evi_summary, trace=TRUE)
+m = vglm(mort_2015_16~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+I(wet_dry_diff^2)+within_year_sd +linear_trend + I(linear_trend^2)+mort_neigh_2014  + mort_2014, tobit, data=evi_summary, trace=TRUE)
 BIC(m) # full model plus neighborhood mortality has best BIC 
 summary(m)
 m0 = vglm(mort_2015_16~1, tobit, data=evi_summary, trace=TRUE)
 1 - (-2*logLik(m)) / (-2*logLik(m0))
 barplot(coef(m)[3:length(coef(m))], horiz=T, las=2, main="Tobit model coefficients", col=ifelse(coef(m)[3:length(coef(m))]<0, "red", "blue"), cex.names=0.5)
 
+
+# Same for all 3 years
+m = vglm(mort_2014_16~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+I(wet_dry_diff^2)+within_year_sd +linear_trend + I(linear_trend^2)+mort_neigh_2013, tobit, data=evi_summary, trace=TRUE)
+BIC(m) # full model plus neighborhood mortality has best BIC 
+summary(m)
+m0 = vglm(mort_2014_16~1, tobit, data=evi_summary, trace=TRUE)
+1 - (-2*logLik(m)) / (-2*logLik(m0))
+barplot(coef(m)[3:length(coef(m))], horiz=T, las=2, main="Tobit model coefficients", col=ifelse(coef(m)[3:length(coef(m))]<0, "red", "blue"), cex.names=0.5)
 
 
 # Note wet_dry_diff matters in 2014, 2015 but not 2016
@@ -199,7 +210,7 @@ plot_to_region <- function(cell.values, cell.index, crop_layer) { # index is the
   r_tmp = setValues(r_tmp, rep(NA, length(r_tmp)))
   r_tmp[cell.index] = cell.values
   r_plot = crop(r_tmp, crop_layer)
-  plot(r_plot,col= rev(viridis(16)))#tim.colors(16)) #
+  plot(r_plot,col= tim.colors(16))#rev(viridis(16)))# #
 }
 par(mfrow=c(1,2))
 plot_to_region(sqrt(evi_summary$mort_2014), evi_summary$cell_number, subset_layer_albers)
@@ -238,7 +249,7 @@ m0.pa = glm(mort_pa~1, data=evi_summary, family="binomial")
 colAUC(fitted(m.pa), evi_summary$mort_pa)
 
 # plot coefs
-barplot(coef(m.pa)[2:16], horiz=T, las=2, main="binomial model coefficients", col=ifelse(coef(m.pa)[2:16]<0, "red", "blue"), cex.names=0.5)
+barplot(coef(m.pa), horiz=T, las=2, main="binomial model coefficients", col=ifelse(coef(m.pa)<0, "red", "blue"), cex.names=0.5)
 
 # Amount of mortality, given mortality occurred
 m.dens = lm(sqrt(mort)~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+I(wet_dry_diff^2)+within_year_sd + among_year_sd + I(among_year_sd^2)+linear_trend + I(linear_trend^2), data=evi_summary, subset=evi_summary$mort_pa==1)
@@ -261,13 +272,15 @@ par(mfrow=c(1,2))
 plot_to_region(sqrt(evi_summary$mort_2015_16), evi_summary$cell_number, subset_layer_albers)
 title("sqrt observed mortality (TPA)")
 mort_pred  = fitted(m.dens)
-mort_pred[1] = max(sqrt(evi_summary$mort_2015_16))
+#mort_pred[1] = max(sqrt(evi_summary$mort_2015_16))
 plot_to_region(mort_pred, evi_summary$cell_number,subset_layer_albers)
 title("model fit")
 
 
+plot(fitted(m.pa),jitter(evi_summary$mort_pa), pch=".") # not too bad at predicting where mortality occurred    
 
-
+plot(mort_pred[evi_summary$mort_2015_16>0]~sqrt(evi_summary$mort_2015_16[evi_summary$mort_2015_16>0]))
+# Terrible at predicting how much, given it occurred
 
 
 
