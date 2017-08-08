@@ -16,6 +16,7 @@ library(viridis)
 library(car)
 library(spdep)
 library(mgcv)
+library(caTools)
 
 # Enter the locations of files to work with 
 # geotifs are the MODIS EVI data that Mike K exported from Google Earth Engine, they are stored in a single folder (geotif_folder) and are all names consistently with the prefix geotif_filename and a date code. 
@@ -240,7 +241,7 @@ evi_summary$mort_pa = as.integer((evi_summary$mort)>0.1) # set threshold: 1 is 1
 sum(evi_summary$mort_pa)/nrow(evi_summary)
 
 # Presence or absence of mortality
-m.pa = glm(mort_pa~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+I(wet_dry_diff^2)+within_year_sd + among_year_sd + I(among_year_sd^2)+linear_trend + I(linear_trend^2), data=evi_summary, family="binomial")
+m.pa = glm(mort_pa~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+within_year_sd + among_year_sd + linear_trend +mort_neigh_2014+mort_2014, data=evi_summary, family="binomial")
 summary(m.pa)
 # pct deviance explained
 m0.pa = glm(mort_pa~1, data=evi_summary, family="binomial")
@@ -249,15 +250,15 @@ m0.pa = glm(mort_pa~1, data=evi_summary, family="binomial")
 colAUC(fitted(m.pa), evi_summary$mort_pa)
 
 # plot coefs
-barplot(coef(m.pa), horiz=T, las=2, main="binomial model coefficients", col=ifelse(coef(m.pa)<0, "red", "blue"), cex.names=0.5)
+barplot(coef(m.pa)[2:length(coef(m.pa))], horiz=T, las=2, main="binomial model coefficients", col=ifelse(coef(m.pa)[2:length(coef(m.pa))]<0, "red", "blue"), cex.names=0.5)
 
 # Amount of mortality, given mortality occurred
-m.dens = lm(sqrt(mort)~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+I(wet_dry_diff^2)+within_year_sd + among_year_sd + I(among_year_sd^2)+linear_trend + I(linear_trend^2), data=evi_summary, subset=evi_summary$mort_pa==1)
+m.dens = lm(log(mort)~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+within_year_sd + among_year_sd +linear_trend+mort_neigh_2014+mort_2014, data=evi_summary, subset=evi_summary$mort_pa==1)
 summary(m.dens)
-# R2 is pretty weak -- 0.11
+# R2 is pretty weak -- 0.10
 
 # plot coefs
-barplot(coef(m.dens)[2:16], horiz=T, las=2, main="linear model coefficients", col=ifelse(coef(m.dens)[2:16]<0, "red", "blue"), cex.names=0.5)
+barplot(coef(m.dens)[2:length(coef(m.dens))], horiz=T, las=2, main="linear model coefficients", col=ifelse(coef(m.dens)[2:length(coef(m.pa))]<0, "red", "blue"), cex.names=0.5)
 
 
 # map of presence absence
