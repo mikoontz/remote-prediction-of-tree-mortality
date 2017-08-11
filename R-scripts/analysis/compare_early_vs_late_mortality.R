@@ -211,7 +211,7 @@ plot_to_region <- function(cell.values, cell.index, crop_layer) { # index is the
   r_tmp = setValues(r_tmp, rep(NA, length(r_tmp)))
   r_tmp[cell.index] = cell.values
   r_plot = crop(r_tmp, crop_layer)
-  plot(r_plot,col= tim.colors(16))#rev(viridis(16)))# #
+  plot(r_plot,col= tim.colors(16), xaxt="n", yaxt="n", xlab="", ylab="")#rev(viridis(16)))# #
 }
 par(mfrow=c(1,2))
 plot_to_region(sqrt(evi_summary$mort_2014), evi_summary$cell_number, subset_layer_albers)
@@ -262,11 +262,11 @@ barplot(coef(m.dens)[2:length(coef(m.dens))], horiz=T, las=2, main="linear model
 
 
 # map of presence absence
-par(mfrow=c(1,2))
+par(mfrow=c(1,2), mar=rep(2, 4))
 plot_to_region(evi_summary$mort_pa, evi_summary$cell_number, subset_layer_albers)
-title("observed mortality (pres/abs)")
+#title("observed mortality (pres/abs)")
 plot_to_region(fitted(m.pa), evi_summary$cell_number,subset_layer_albers)
-title("model fit (prob. mortality)")
+#title("model fit (prob. mortality)")
 
 # map of amount of mortality, given present
 par(mfrow=c(1,2)) 
@@ -276,6 +276,19 @@ mort_pred  = fitted(m.dens)
 #mort_pred[1] = max(sqrt(evi_summary$mort_2015_16))
 plot_to_region(mort_pred, evi_summary$cell_number,subset_layer_albers)
 title("model fit")
+
+# Combined model, observed vs fit. -- currently not implemented! 
+par(mfrow=c(1,2))
+tempdens = rep(0, length(fitted(m.pa))
+hurdle_pred = rep(0, length(fitted(m.pa)) * exp(fitted(m.dens))
+plot_to_region((evi_summary$mort_2015_16), evi_summary$cell_number, subset_layer_albers)
+title("sqrt observed mortality (TPA)")
+mort_pred  = fitted(m.dens)
+#mort_pred[1] = max(sqrt(evi_summary$mort_2015_16))
+plot_to_region(mort_pred, evi_summary$cell_number,subset_layer_albers)
+title("model fit")
+
+
 
 
 plot(fitted(m.pa),jitter(evi_summary$mort_pa), pch=".") # not too bad at predicting where mortality occurred    
