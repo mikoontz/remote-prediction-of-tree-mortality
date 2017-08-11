@@ -61,7 +61,7 @@ mort_2015_2016 = raster("features/ADS-rasterized/Y2015_spALL.tif") + raster("fea
 # Create a target cover layer for pixels with specified percent forest type cover
 # Start by focusing only on PPN for test run
 cover_min = 80 # Minumum cover of WHR type
-target_cover = raster("features/calveg-pct-cover-rasters/sierra_nevada_250m_calveg_cover_whr_type_PPN.tif") + raster("features/calveg-pct-cover-rasters/sierra_nevada_250m_calveg_cover_whr_type_SMC.tif")
+target_cover = raster("features/calveg-pct-cover-rasters/sierra_nevada_250m_calveg_cover_whr_type_PPN.tif") + raster("features/calveg-pct-cover-rasters/sierra_nevada_250m_calveg_cover_whr_type_SMC.tif") + raster("features/calveg-pct-cover-rasters/sierra_nevada_250m_calveg_cover_whr_type_JPN.tif") + raster("features/calveg-pct-cover-rasters/sierra_nevada_250m_calveg_cover_whr_type_DFR.tif") + raster("features/calveg-pct-cover-rasters/sierra_nevada_250m_calveg_cover_whr_type_WFR.tif")
 
 target_pixels = target_cover
 target_pixels[target_cover<80] = 0
@@ -321,7 +321,7 @@ plot_to_region <- function(cell.values, cell.index, crop_layer) { # index is the
   r_tmp = setValues(r_tmp, rep(NA, length(r_tmp)))
   r_tmp[cell.index] = cell.values
   r_plot = crop(r_tmp, crop_layer)
-  plot(r_plot,col=viridis(10))#col=tim.colors(16))
+  plot(r_plot,col=tim.colors(16))#viridis(10))
 }
 
 
@@ -336,7 +336,7 @@ plot_to_region(evi_summary$evi_mean, evi_summary$cell_number,subset_layer_albers
 
 
 plot_to_region(evi_summary$seas_change, evi_summary$cell_number, subset_layer_albers); title("Early-season EVI minus late-season EVI", cex.main=0.7)
-plot_to_region(sqrt(evi_summary$among_year_var-min(evi_summary$among_year_var)), evi_summary$cell_number, target_pixels_na, subset_layer_albers); title("among-year sd")
+plot_to_region(sqrt(evi_summary$among_year_var-min(evi_summary$among_year_var)), evi_summary$cell_number, subset_layer_albers); title("among-year sd")
 plot_to_region(evi_summary$wet_dry_diff, evi_summary$cell_number, subset_layer_albers); title("Wet-year mean EVI minus dry-year mean EVI", cex.main=0.7)
 
 # observed and predicted mortality 

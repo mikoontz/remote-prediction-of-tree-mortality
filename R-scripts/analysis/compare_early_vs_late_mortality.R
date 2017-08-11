@@ -270,12 +270,10 @@ plot_to_region(fitted(m.pa), evi_summary$cell_number,subset_layer_albers)
 
 # map of amount of mortality, given present
 par(mfrow=c(1,2)) 
-plot_to_region(sqrt(evi_summary$mort_2015_16), evi_summary$cell_number, subset_layer_albers)
-title("sqrt observed mortality (TPA)")
+plot_to_region(log(evi_summary$mort_2015_16[evi_summary$mort_pa==1]), evi_summary$cell_number[evi_summary$mort_pa==1], subset_layer_albers)
 mort_pred  = fitted(m.dens)
 #mort_pred[1] = max(sqrt(evi_summary$mort_2015_16))
-plot_to_region(mort_pred, evi_summary$cell_number,subset_layer_albers)
-title("model fit")
+plot_to_region(mort_pred, evi_summary$cell_number[evi_summary$mort_pa==1],subset_layer_albers)
 
 # Combined model, observed vs fit. -- currently not implemented! 
 par(mfrow=c(1,2))
