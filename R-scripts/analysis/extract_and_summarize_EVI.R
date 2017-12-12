@@ -72,6 +72,7 @@ target_pixels[is.na(target_pixels)] = 0
 subset_layer = shapefile("features/jepson-central+southern-outline.shp")
 subset_layer_albers = spTransform(subset_layer, albers.proj)
 target_pixels = mask(target_pixels, subset_layer_albers, updatevalue=0)
+#save(target_pixels, file="features/target_pixels.Rdata")
 
 # Plot to show this geographic subsetting
 plot(evi_template, bty="n", box=FALSE, xaxt="n", yaxt="n", legend=FALSE)
@@ -293,6 +294,8 @@ save(evi_summary, file="features/working-files/evi_summary_PPN+SMC_jepson_centra
 # Do some simple regressions
 
 load("features/working-files/evi_summary_PPN+SMC_jepson_central+south.Rdata")
+evi_template = raster("features/sierra-nevada-250m-evi-template.tif")
+
 
 ### Run a simple model to check associations -- use tobit model in vgam library
 hist(evi_summary$mort)
@@ -330,10 +333,10 @@ plot_to_region <- function(cell.values, cell.index, crop_layer) { # index is the
 
 # plot some EVI summaries
 # make a template for plotting 
+load("features/target_pixels.Rdata")
 target_pixels_na = target_pixels
 target_pixels_na[target_pixels_na==0] = NA
 plot_to_region(evi_summary$evi_mean, evi_summary$cell_number,subset_layer_albers); title("mean EVI")
-
 
 plot_to_region(evi_summary$seas_change, evi_summary$cell_number, subset_layer_albers); title("Early-season EVI minus late-season EVI", cex.main=0.7)
 plot_to_region(sqrt(evi_summary$among_year_var-min(evi_summary$among_year_var)), evi_summary$cell_number, subset_layer_albers); title("among-year sd")
@@ -376,6 +379,43 @@ title("Sqrt observed mortality")
 mort_pred[1] = sqrt(max(evi_summary$mort))
 plot_to_region(mort_pred[!is.na(evi_summary$mort)], evi_summary$cell_number[!is.na(evi_summary$mort)],subset_layer_albers)
 title("Sqrt model fit")
+
+#### Cross-validation of simple linear models ##### 
+
+# split data into fitting (90%) and test (10%) data sets
+n <- nrow(evi_summary)
+holdout.ind <- rep(TRUE, n)
+holdout.ind[sample(1:nrow(evi_summary), size=round(0.1*n))] = FALSE
+evi_fit <- evi_summary[holdout.ind,]
+evi_test <- evi_summary[!holdout.ind,]
+
+# simple cv of tobit model
+m <- vglm(mort~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend, tobit, data=evi_fit, trace=TRUE)
+summary(m)
+
+m.pred <- predict(m, newdata=evi_test)[,1]
+plot(evi_test$mort ~ m.pred)
+cor(evi_test$mort, m.pred) # predictive R2=0.11
+
+# simple cv of linear model
+m_lin <- lm(sqrt(mort)~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend, data=evi_fit)
+summary(m_lin)
+m_lin.pred <- predict(m_lin, newdata=evi_test)
+plot(m.pred ~ I(m_lin.pred^2))
+plot(evi_test$mort ~ I(m_lin.pred^2))
+cor(evi_test$mort, m_lin.pred) # predictive R2=0.11
+
+# Same for gam 
+gam.formula <- sqrt(mort) ~ s(seas_change)+s(wet_dry_diff)+s(within_year_sd) + s(among_year_sd)+s(linear_trend) #s(evi_mean)
+m_gam <- gam(gam.formula, data=evi_fit)
+summary(m_gam)
+
+qqnorm(resid(m_gam))
+
+m_gam.pred <- predict(m_gam, newdata=evi_test)
+plot(evi_test$mort ~ m_gam.pred)
+cor(evi_test$mort, m_gam.pred)^2 # predictive R2 = 0.13, but without mean evi, it's only 0.07
+
 
 
 
