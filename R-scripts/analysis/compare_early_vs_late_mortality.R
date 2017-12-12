@@ -16,6 +16,7 @@ library(viridis)
 library(car)
 library(spdep)
 library(mgcv)
+library(caTools)
 
 # Enter the locations of files to work with 
 # geotifs are the MODIS EVI data that Mike K exported from Google Earth Engine, they are stored in a single folder (geotif_folder) and are all names consistently with the prefix geotif_filename and a date code. 
@@ -110,6 +111,8 @@ evi_summary = evi_summary[complete.cases(evi_summary),]
 dim(evi_summary)
 
 # create a variable that describes average mortality in a grid cell's neighbors
+maxdist = 740 # set size of neighborhood -- started with 740 for small neighborhood
+              # results below don't seem different when this is increased to 1480
 evi_points = rasterToPoints(evi_template)
 summary_points = evi_points[evi_summary$cell_number,1:2]
 evi_neigh = dnearneigh(summary_points, d1=100, d2=740, longlat=FALSE)
@@ -123,8 +126,6 @@ mort_neigh = lapply(evi_neigh, f<- function(x){return(mean(evi_summary$mort_2014
 evi_summary$mort_neigh_2014 = unlist(mort_neigh)
 mort_neigh = lapply(evi_neigh, f<- function(x){return(mean(evi_summary$mort_2015[x], na.rm=T))})
 evi_summary$mort_neigh_2015 = unlist(mort_neigh)
-hist(log(evi_summary$mort_neigh+0.1))
-
 
 # Store intermediate file 
 save(evi_summary, file="features/working-files/evi_summary_with_mort_PPN+SMC_jepson_central+south.Rdata")
@@ -145,27 +146,55 @@ evi_summary = evi_summary[complete.cases(evi_summary),]
 ### Check out shapes of responses
 # Combine the 2 major mortality years
 evi_summary$mort_2015_16 = evi_summary$mort_2015 + evi_summary$mort_2016
-m = gam(mort_2015_16~s(evi_mean)+s(seas_change)+wet_dry_diff+within_year_sd + s(among_year_sd)+s(linear_trend), data=evi_summary, trace=TRUE)
-summary(m)
+# Combine 2014-16
+evi_summary$mort_2014_16 = evi_summary$mort_2015+evi_summary$mort_2015 + evi_summary$mort_2016
+
+
+# fit gam model to look at response shapes
+m1 = gam(mort_2015_16~s(evi_mean)+s(seas_change)+wet_dry_diff+within_year_sd + s(among_year_sd)+s(linear_trend), data=evi_summary, trace=TRUE)
+summary(m1)
 plot(m)
  
 # does adding lag help?
-m = gam(mort_2015_16~s(evi_mean)+s(seas_change)+wet_dry_diff+within_year_sd + s(among_year_sd)+s(linear_trend) , data=evi_summary, trace=TRUE)
-summary(m)
-
+m2 = gam(mort_2015_16~s(evi_mean)+s(seas_change)+wet_dry_diff+within_year_sd + s(among_year_sd)+s(linear_trend) + s(mort_2014), data=evi_summary, trace=TRUE)
+summary(m2)
 # not much 
 
 # does adding lagged local neighborhood help?
-m = gam(mort_2015_16~s(evi_mean)+s(seas_change)+wet_dry_diff+within_year_sd + s(among_year_sd)+s(linear_trend) +s(mort_neigh_2014), data=evi_summary, trace=TRUE)
-summary(m) 
-plot(m) # a little, at very high mortality levels 
+m3 = gam(mort_2015_16~s(evi_mean)+s(seas_change)+wet_dry_diff+within_year_sd + s(among_year_sd)+s(linear_trend) +s(mort_neigh_2014), data=evi_summary, trace=TRUE)
+summary(m3) 
+plot(m3) # a little, at very high mortality levels 
 
-### Convert this over to a tobit model
-m = vglm(mort_2014~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+I(wet_dry_diff^2)+within_year_sd + among_year_sd + I(among_year_sd^2)+linear_trend + I(linear_trend^2)+mort_neigh_2014, tobit, data=evi_summary, trace=TRUE)
+### Convert this over to a tobit model for 2014
+m = vglm(mort_2014~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+I(wet_dry_diff^2)+within_year_sd+linear_trend + I(linear_trend^2)+mort_neigh_2013, tobit, data=evi_summary, trace=TRUE)
+#m = vglm(mort_2014~evi_mean+I(evi_mean^2) + seas_change +wet_dry_diff+within_year_sd +mort_neigh_2013, tobit, data=evi_summary, trace=TRUE)
 BIC(m) # full model plus neighborhood mortality has best BIC 
 summary(m)
 m0 = vglm(mort_2014~1, tobit, data=evi_summary, trace=TRUE)
-1 - (-2*logLik(m)) / (-2*logLik(m0)) # terrible pct dev explained for 2015-16, pretty good for 2014!
+1 - (-2*logLik(m)) / (-2*logLik(m0))
+
+
+# PLot model coefficients
+barplot(coef(m)[3:length(coef(m))], horiz=T, las=2, main="Tobit model coefficients", col=ifelse(coef(m)[3:length(coef(m))]<0, "red", "blue"), cex.names=0.5)
+
+
+### Convert this over to a tobit model  for 2015-16
+m = vglm(mort_2015_16~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+I(wet_dry_diff^2)+within_year_sd +linear_trend + I(linear_trend^2)+mort_neigh_2014  + mort_2014, tobit, data=evi_summary, trace=TRUE)
+BIC(m) # full model plus neighborhood mortality has best BIC 
+summary(m)
+m0 = vglm(mort_2015_16~1, tobit, data=evi_summary, trace=TRUE)
+1 - (-2*logLik(m)) / (-2*logLik(m0))
+barplot(coef(m)[3:length(coef(m))], horiz=T, las=2, main="Tobit model coefficients", col=ifelse(coef(m)[3:length(coef(m))]<0, "red", "blue"), cex.names=0.5)
+
+
+# Same for all 3 years
+m = vglm(mort_2014_16~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+I(wet_dry_diff^2)+within_year_sd +linear_trend + I(linear_trend^2)+mort_neigh_2013, tobit, data=evi_summary, trace=TRUE)
+BIC(m) # full model plus neighborhood mortality has best BIC 
+summary(m)
+m0 = vglm(mort_2014_16~1, tobit, data=evi_summary, trace=TRUE)
+1 - (-2*logLik(m)) / (-2*logLik(m0))
+barplot(coef(m)[3:length(coef(m))], horiz=T, las=2, main="Tobit model coefficients", col=ifelse(coef(m)[3:length(coef(m))]<0, "red", "blue"), cex.names=0.5)
+
 
 # Note wet_dry_diff matters in 2014, 2015 but not 2016
 
@@ -182,7 +211,7 @@ plot_to_region <- function(cell.values, cell.index, crop_layer) { # index is the
   r_tmp = setValues(r_tmp, rep(NA, length(r_tmp)))
   r_tmp[cell.index] = cell.values
   r_plot = crop(r_tmp, crop_layer)
-  plot(r_plot,col= rev(viridis(16)))#tim.colors(16)) #
+  plot(r_plot,col= tim.colors(16), xaxt="n", yaxt="n", xlab="", ylab="")#rev(viridis(16)))# #
 }
 par(mfrow=c(1,2))
 plot_to_region(sqrt(evi_summary$mort_2014), evi_summary$cell_number, subset_layer_albers)
@@ -212,7 +241,7 @@ evi_summary$mort_pa = as.integer((evi_summary$mort)>0.1) # set threshold: 1 is 1
 sum(evi_summary$mort_pa)/nrow(evi_summary)
 
 # Presence or absence of mortality
-m.pa = glm(mort_pa~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+I(wet_dry_diff^2)+within_year_sd + among_year_sd + I(among_year_sd^2)+linear_trend + I(linear_trend^2), data=evi_summary, family="binomial")
+m.pa = glm(mort_pa~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+within_year_sd + among_year_sd + linear_trend +mort_neigh_2014+mort_2014, data=evi_summary, family="binomial")
 summary(m.pa)
 # pct deviance explained
 m0.pa = glm(mort_pa~1, data=evi_summary, family="binomial")
@@ -221,36 +250,49 @@ m0.pa = glm(mort_pa~1, data=evi_summary, family="binomial")
 colAUC(fitted(m.pa), evi_summary$mort_pa)
 
 # plot coefs
-barplot(coef(m.pa)[2:16], horiz=T, las=2, main="binomial model coefficients", col=ifelse(coef(m.pa)[2:16]<0, "red", "blue"), cex.names=0.5)
+barplot(coef(m.pa)[2:length(coef(m.pa))], horiz=T, las=2, main="binomial model coefficients", col=ifelse(coef(m.pa)[2:length(coef(m.pa))]<0, "red", "blue"), cex.names=0.5)
 
 # Amount of mortality, given mortality occurred
-m.dens = lm(sqrt(mort)~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+I(wet_dry_diff^2)+within_year_sd + among_year_sd + I(among_year_sd^2)+linear_trend + I(linear_trend^2), data=evi_summary, subset=evi_summary$mort_pa==1)
+m.dens = lm(log(mort)~evi_mean+I(evi_mean^2) + seas_change + I(seas_change^2)+wet_dry_diff+within_year_sd + among_year_sd +linear_trend+mort_neigh_2014+mort_2014, data=evi_summary, subset=evi_summary$mort_pa==1)
 summary(m.dens)
-# R2 is pretty weak -- 0.11
+# R2 is pretty weak -- 0.10
 
 # plot coefs
-barplot(coef(m.dens)[2:16], horiz=T, las=2, main="linear model coefficients", col=ifelse(coef(m.dens)[2:16]<0, "red", "blue"), cex.names=0.5)
+barplot(coef(m.dens)[2:length(coef(m.dens))], horiz=T, las=2, main="linear model coefficients", col=ifelse(coef(m.dens)[2:length(coef(m.pa))]<0, "red", "blue"), cex.names=0.5)
 
 
 # map of presence absence
-par(mfrow=c(1,2))
+par(mfrow=c(1,2), mar=rep(2, 4))
 plot_to_region(evi_summary$mort_pa, evi_summary$cell_number, subset_layer_albers)
-title("observed mortality (pres/abs)")
+#title("observed mortality (pres/abs)")
 plot_to_region(fitted(m.pa), evi_summary$cell_number,subset_layer_albers)
-title("model fit (prob. mortality)")
+#title("model fit (prob. mortality)")
 
 # map of amount of mortality, given present
 par(mfrow=c(1,2)) 
-plot_to_region(sqrt(evi_summary$mort_2015_16), evi_summary$cell_number, subset_layer_albers)
+plot_to_region(log(evi_summary$mort_2015_16[evi_summary$mort_pa==1]), evi_summary$cell_number[evi_summary$mort_pa==1], subset_layer_albers)
+mort_pred  = fitted(m.dens)
+#mort_pred[1] = max(sqrt(evi_summary$mort_2015_16))
+plot_to_region(mort_pred, evi_summary$cell_number[evi_summary$mort_pa==1],subset_layer_albers)
+
+# Combined model, observed vs fit. -- currently not implemented! 
+par(mfrow=c(1,2))
+tempdens = rep(0, length(fitted(m.pa))
+hurdle_pred = rep(0, length(fitted(m.pa)) * exp(fitted(m.dens))
+plot_to_region((evi_summary$mort_2015_16), evi_summary$cell_number, subset_layer_albers)
 title("sqrt observed mortality (TPA)")
 mort_pred  = fitted(m.dens)
-mort_pred[1] = max(sqrt(evi_summary$mort_2015_16))
+#mort_pred[1] = max(sqrt(evi_summary$mort_2015_16))
 plot_to_region(mort_pred, evi_summary$cell_number,subset_layer_albers)
 title("model fit")
 
 
 
 
+plot(fitted(m.pa),jitter(evi_summary$mort_pa), pch=".") # not too bad at predicting where mortality occurred    
+
+plot(mort_pred[evi_summary$mort_2015_16>0]~sqrt(evi_summary$mort_2015_16[evi_summary$mort_2015_16>0]))
+# Terrible at predicting how much, given it occurred
 
 
 
@@ -350,10 +392,11 @@ summary(m.dens)
 
 plot_to_region <- function(cell.values, cell.index, crop_layer) { # index is the row numbers of the cells to plot, and indexes grid cells in the original evi_template
   r_tmp = evi_template
+  plot(subset_layer_albers, col=gray(0.9), lty=0)
   r_tmp = setValues(r_tmp, rep(NA, length(r_tmp)))
   r_tmp[cell.index] = cell.values
   r_plot = crop(r_tmp, crop_layer)
-  plot(r_plot,col=tim.colors(16))#col=viridis(16))#
+  plot(r_plot,col=tim.colors(16), add=T)#col=viridis(16))#
 }
 
 
@@ -371,6 +414,7 @@ plot_to_region(evi_summary$seas_change, evi_summary$cell_number, subset_layer_al
 plot_to_region(sqrt(evi_summary$among_year_var-min(evi_summary$among_year_var)), evi_summary$cell_number, subset_layer_albers); title("among-year sd")
 plot_to_region(evi_summary$linear_trend, evi_summary$cell_number, subset_layer_albers); title("linear trend in EVI", cex.main=0.7)
 plot_to_region(evi_summary$wet_dry_diff, evi_summary$cell_number, subset_layer_albers); title("Wet-year mean EVI minus dry-year mean EVI", cex.main=0.7)
+plot_to_region(sqrt(evi_summary$mort_neigh_2014), evi_summary$cell_number, subset_layer_albers); title("Neighboring mortality in 2014", cex.main=0.7)
 
 # Here the mean EVI, seasonal diff, and wet-dry diff are most interesting, esp if shown in extreme colors that highlight negative vs positive values 
 # A lot of the prediction amounts to the sensitivity plus the mean layers. 
@@ -395,7 +439,7 @@ for (i in 1:16) plot(evi_mat[sample(1:nrow(evi_mat), 1),dates$mon %in% c(5,6,7,8
 # all pixels averaged
 evi_mean_all = apply(evi_mat, 2, mean, na.rm=T)
 # long time series
-plot(evi_mean_all, ylim=c(0.2, 0.5), type="l",lwd=2, col="cyan4")
+plot(evi_mean_all, ylim=c(0.2, 0.4), type="l",lwd=2, col="cyan4", ylab="Regional mean EVI",xlab="Time step", cex.axis=1.1, cex.lab=1.5)
 # I'd say this shows that 2013 was low, clearly a drought year, but not out of the normal range for the rest of the years. So for model fitting, seems ok to go through 2013. The later years are drastically low, esp 2016. Will be interesting to see the rebound in 2017, if any. 
 # plotting the spatial average for each year. 
 plot(evi_mean_all[dates$year==100]~dates$yday[dates$year==100], type="l", lwd=2, col="cyan4", ylim=c(0.2, 0.5))
