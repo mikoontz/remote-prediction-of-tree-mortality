@@ -34,7 +34,7 @@ dates = strptime(date_codes, "%Y%m%d")
 evi_template = raster("features/sierra-nevada-250m-evi-template.tif")
 
 # check that template includes the same region as the first evi data raster
-#evi_000 = raster("features/ee-sn_jep_modis_ts_quality_mask_epsg3310/sn_jep_modis_ts_quality_mask_epsg3310_000_20000218.tif")
+#evi_000 = raster("features/ee-sn_jep_modis_ts_quality_mask_epsg3310/sn_jep_modis_ts_quality_mask_epsg3310_172_20070813.tif")
 #sn = shapefile("features/SierraEcoregion_Jepson/SierraEcoregion_Jepson.shp")
 #sn = spTransform(sn, albers.proj)
 #cells_in_region = extract(evi_template, sn, cellnumbers=T)[[1]]
@@ -48,6 +48,12 @@ evi_template = raster("features/sierra-nevada-250m-evi-template.tif")
 # results: almost identical, but there are a few cells that "leak out" of the sierra nevada polygon presumably as a result of reprojection. 
 #rm(evi_000)
 
+# Plot example EVI layer before further masking
+evi_000 = raster("features/ee-sn_jep_modis_ts_quality_mask_epsg3310/sn_jep_modis_ts_quality_mask_epsg3310_172_20070813.tif")
+evi_000[evi_000<=0] = NA
+plot(evi_000, col=rev(viridis(16)),bty="n", box=FALSE, xaxt="n", yaxt="n", legend=FALSE)
+
+
 # load one mortality layer as a template
 mort_template = raster("features/ADS-rasterized/Y2015_sp122.tif")
 mort_2015_2016 = raster("features/ADS-rasterized/Y2015_spALL.tif") + raster("features/ADS-rasterized/Y2016_spALL.tif")
@@ -55,7 +61,7 @@ mort_2015_2016 = raster("features/ADS-rasterized/Y2015_spALL.tif") + raster("fea
 # Create a target cover layer for pixels with specified percent forest type cover
 # Start by focusing only on PPN for test run
 cover_min = 80 # Minumum cover of WHR type
-target_cover = raster("features/calveg-pct-cover-rasters/sierra_nevada_250m_calveg_cover_whr_type_PPN.tif") + raster("features/calveg-pct-cover-rasters/sierra_nevada_250m_calveg_cover_whr_type_SMC.tif")
+target_cover = raster("features/calveg-pct-cover-rasters/sierra_nevada_250m_calveg_cover_whr_type_PPN.tif") + raster("features/calveg-pct-cover-rasters/sierra_nevada_250m_calveg_cover_whr_type_SMC.tif") + raster("features/calveg-pct-cover-rasters/sierra_nevada_250m_calveg_cover_whr_type_JPN.tif") + raster("features/calveg-pct-cover-rasters/sierra_nevada_250m_calveg_cover_whr_type_DFR.tif") + raster("features/calveg-pct-cover-rasters/sierra_nevada_250m_calveg_cover_whr_type_WFR.tif")
 
 target_pixels = target_cover
 target_pixels[target_cover<80] = 0
@@ -66,6 +72,15 @@ target_pixels[is.na(target_pixels)] = 0
 subset_layer = shapefile("features/jepson-central+southern-outline.shp")
 subset_layer_albers = spTransform(subset_layer, albers.proj)
 target_pixels = mask(target_pixels, subset_layer_albers, updatevalue=0)
+#save(target_pixels, file="features/target_pixels.Rdata")
+
+# Plot to show this geographic subsetting
+plot(evi_template, bty="n", box=FALSE, xaxt="n", yaxt="n", legend=FALSE)
+plot(subset_layer_albers, add=T, col="darkblue")
+
+# Plot to also show forest type subsetting =
+plot(target_pixels, bty="n", box=FALSE, xaxt="n", yaxt="n", legend=FALSE)
+
 
 # Reproject mortality raster to match the EVI geotiffs (in Albers projection). 
 # Note target veg raster is already in this projection. 
@@ -143,6 +158,25 @@ evi_mat = evi_mat/10000 # rescale to standard EVI values
 save(evi_mat, file="features/working-files/evi_data_matrix_jepson_PPN+SMC_central+south.Rdata")
 
 
+# Plot recent fires to show masking for disturbance
+fire_mask = fire_dates
+fire_mask[fire_dates<2000] = 0
+plot(fire_mask, col=rev(heat.colors(16)), bty="n", box=FALSE, xaxt="n", yaxt="n", legend=FALSE)
+# Same for management
+mgt_mask = mgt_dates
+mgt_mask[mgt_dates<2000] = NA
+plot(mgt_mask, col=rev(viridis(16)), bty="n", box=FALSE, xaxt="n", yaxt="n", legend=FALSE)
+# Same for forest type
+forest_mask = target_cover
+forest_mask[target_cover<80] = NA
+forest_mask[target_cover>=80] = 1
+plot(forest_mask, col=rev(viridis(16)), bty="n", box=FALSE, xaxt="n", yaxt="n", legend=FALSE)
+# Plot to show what resulting data looks like 
+plot_to_region(rep(1, length(evi_summary$cell_number)), evi_summary$cell_number,subset_layer_albers)
+
+
+
+
 
 ######################################################
 # Summarize the EVI time series
@@ -163,7 +197,10 @@ startyear = 2000
 endyear = 2013
 evi_months = c(4,5,6,7,8) # which months -- note month numbers are 0-11
 time_index = as.integer(which(dates$mon %in% evi_months & dates$year <= (endyear-1900) & dates$year >= (startyear-1900)))
-plot(evi_mat[10,time_index])
+plot(evi_mat[101,], type="l", col="darkgreen", lwd=2, ylab="EVI", xlab ="Time step")
+plot(evi_mat[101,time_index], type="l", col="darkgreen", lwd=2)
+par(mfrow=c(5,5), mar=rep(0.5, 4))
+for(i in 1:25) plot(evi_mat[sample(1:nrow(evi_mat), size=1),], xaxt="n", yaxt="n", xlab="", ylab="", type="l", col="darkgreen", lwd=2)
 
 
 ### Make single-number summaries of EVI time series and store in data frame
@@ -257,6 +294,8 @@ save(evi_summary, file="features/working-files/evi_summary_PPN+SMC_jepson_centra
 # Do some simple regressions
 
 load("features/working-files/evi_summary_PPN+SMC_jepson_central+south.Rdata")
+evi_template = raster("features/sierra-nevada-250m-evi-template.tif")
+
 
 ### Run a simple model to check associations -- use tobit model in vgam library
 hist(evi_summary$mort)
@@ -285,7 +324,7 @@ plot_to_region <- function(cell.values, cell.index, crop_layer) { # index is the
   r_tmp = setValues(r_tmp, rep(NA, length(r_tmp)))
   r_tmp[cell.index] = cell.values
   r_plot = crop(r_tmp, crop_layer)
-  plot(r_plot,col=tim.colors(16))#col=viridis(10))
+  plot(r_plot,col=tim.colors(16))#viridis(10))
 }
 
 
@@ -294,13 +333,13 @@ plot_to_region <- function(cell.values, cell.index, crop_layer) { # index is the
 
 # plot some EVI summaries
 # make a template for plotting 
+load("features/target_pixels.Rdata")
 target_pixels_na = target_pixels
 target_pixels_na[target_pixels_na==0] = NA
 plot_to_region(evi_summary$evi_mean, evi_summary$cell_number,subset_layer_albers); title("mean EVI")
 
-
 plot_to_region(evi_summary$seas_change, evi_summary$cell_number, subset_layer_albers); title("Early-season EVI minus late-season EVI", cex.main=0.7)
-plot_to_region(sqrt(evi_summary$among_year_var-min(evi_summary$among_year_var)), evi_summary$cell_number, target_pixels_na, subset_layer_albers); title("among-year sd")
+plot_to_region(sqrt(evi_summary$among_year_var-min(evi_summary$among_year_var)), evi_summary$cell_number, subset_layer_albers); title("among-year sd")
 plot_to_region(evi_summary$wet_dry_diff, evi_summary$cell_number, subset_layer_albers); title("Wet-year mean EVI minus dry-year mean EVI", cex.main=0.7)
 
 # observed and predicted mortality 
@@ -340,6 +379,43 @@ title("Sqrt observed mortality")
 mort_pred[1] = sqrt(max(evi_summary$mort))
 plot_to_region(mort_pred[!is.na(evi_summary$mort)], evi_summary$cell_number[!is.na(evi_summary$mort)],subset_layer_albers)
 title("Sqrt model fit")
+
+#### Cross-validation of simple linear models ##### 
+
+# split data into fitting (90%) and test (10%) data sets
+n <- nrow(evi_summary)
+holdout.ind <- rep(TRUE, n)
+holdout.ind[sample(1:nrow(evi_summary), size=round(0.1*n))] = FALSE
+evi_fit <- evi_summary[holdout.ind,]
+evi_test <- evi_summary[!holdout.ind,]
+
+# simple cv of tobit model
+m <- vglm(mort~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend, tobit, data=evi_fit, trace=TRUE)
+summary(m)
+
+m.pred <- predict(m, newdata=evi_test)[,1]
+plot(evi_test$mort ~ m.pred)
+cor(evi_test$mort, m.pred) # predictive R2=0.11
+
+# simple cv of linear model
+m_lin <- lm(sqrt(mort)~evi_mean+seas_change+wet_dry_diff+within_year_sd + among_year_sd+linear_trend, data=evi_fit)
+summary(m_lin)
+m_lin.pred <- predict(m_lin, newdata=evi_test)
+plot(m.pred ~ I(m_lin.pred^2))
+plot(evi_test$mort ~ I(m_lin.pred^2))
+cor(evi_test$mort, m_lin.pred) # predictive R2=0.11
+
+# Same for gam 
+gam.formula <- sqrt(mort) ~ s(seas_change)+s(wet_dry_diff)+s(within_year_sd) + s(among_year_sd)+s(linear_trend) #s(evi_mean)
+m_gam <- gam(gam.formula, data=evi_fit)
+summary(m_gam)
+
+qqnorm(resid(m_gam))
+
+m_gam.pred <- predict(m_gam, newdata=evi_test)
+plot(evi_test$mort ~ m_gam.pred)
+cor(evi_test$mort, m_gam.pred)^2 # predictive R2 = 0.13, but without mean evi, it's only 0.07
+
 
 
 
