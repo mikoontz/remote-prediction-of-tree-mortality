@@ -12,6 +12,7 @@ library(VGAM)
 library(viridis)
 library(car)
 library(lubridate)
+library(INLA)
 
 
 #### Load data ####
@@ -73,18 +74,35 @@ AIC(m)
 
 # Fit a sine wave to data, given that the period is 23 obs/year
 sin_fit <- function(x) {
-  yhat <- x[1]*sin(times+x[2]) + x[3]
+  yhat <- x[1]*sin(seas.time+x[2]) + x[3]
   return(sum((y-yhat)^2, na.rm=T))
 }
-y <- evi_mat[3000,time_subset]
-times <- ((1:n) %% 23)/23 * (2*pi)
+y <- evi_mat[4000,time_subset]
+seas.time <- ((1:n) %% 23)/23 * (2*pi)
 n <- length(y)
 fit1 <- optim(c(2, 1, 0.1), sin_fit)
 
 # plot result
-plot(1:n, y)
-lines(1:n, fit1$par[1]*sin(times+fit1$par[2]))
+plot(1:n, y, cex=0.7)
+lines(1:n, fit1$par[1]*sin(seas.time+fit1$par[2]) + fit1$par[3], col="cyan4", lwd=3)
 
+# INLA version
+y <- evi_mat[2000,time_subset]
+n <- length(y)
+d = data.frame(y=y, trend = 1:n, seasonal=1:n)
+formula  = y ~  f(trend, model="rw2", cyclic=FALSE, param=c(1,0.0001)) + f(seasonal,model="seasonal",season.length=23,param=c(1,0.1))
+mod = inla(formula, family="gaussian", data=d, control.family=list(param=c(4,4)), control.predictor = list(link = 1))
+summary(mod)
+
+plot(mod$summary.fitted.values$mean, pch=16, cex=0.7, col="blue")
+points(y,  pch=16, cex=0.7, col="red")
+lines(mod$summary.random$seasonal$mean + mod$summary.fixed$mean)
+lines(mod$summary.random$trend$mean + mod$summary.fixed$mean, col="darkgray", lwd=2)
+
+
+
+
+plot(mod, plot.fixed.effects=F, plot.random.effects=T, plot.lincomb = FALSE, plot.hyperparameters = FALSE, plot.predictor = FALSE, plot.q = FALSE, plot.cpo = FALSE)
 ### Make single-number summaries of EVI time series and store in data frame
 
 # Summarize extracted values into data frame
