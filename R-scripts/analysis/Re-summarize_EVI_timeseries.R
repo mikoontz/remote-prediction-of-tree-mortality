@@ -74,17 +74,23 @@ AIC(m)
 
 # Fit a sine wave to data, given that the period is 23 obs/year
 sin_fit <- function(x) {
-  yhat <- x[1]*sin(seas.time+x[2]) + x[3]
+  yhat <- x[1] + x[2]*sin(seas.time+x[3]) 
   return(sum((y-yhat)^2, na.rm=T))
 }
+wave_fit <- function(x) {
+  yhat <- x[1] + x[2]*sin(seas.time+x[3]) + x[4]*cos(seas.time+x[5])
+  return(sum((y-yhat)^2, na.rm=T))
+}
+
 y <- evi_mat[4000,time_subset]
 seas.time <- ((1:n) %% 23)/23 * (2*pi)
 n <- length(y)
 fit1 <- optim(c(2, 1, 0.1), sin_fit)
+fit1
 
 # plot result
 plot(1:n, y, cex=0.7)
-lines(1:n, fit1$par[1]*sin(seas.time+fit1$par[2]) + fit1$par[3], col="cyan4", lwd=3)
+lines(1:n, fit1$par[1] + fit1$par[2]*sin(seas.time+fit1$par[3]), col="cyan4", lwd=3)
 
 # INLA version
 y <- evi_mat[2000,time_subset]
