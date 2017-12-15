@@ -78,14 +78,14 @@ sin_fit <- function(x) {
   return(sum((y-yhat)^2, na.rm=T))
 }
 wave_fit <- function(x) {
-  yhat <- x[1] + x[2]*sin(seas.time+x[3]) + x[4]*cos(seas.time+x[5])
+  yhat <- x[1] + x[2]*sin(seas.time) + x[3]*cos(seas.time)
   return(sum((y-yhat)^2, na.rm=T))
 }
 
-y <- evi_mat[4000,time_subset]
+y <- evi_mat[3000,time_subset]
 seas.time <- ((1:n) %% 23)/23 * (2*pi)
 n <- length(y)
-fit1 <- optim(c(2, 1, 0.1), sin_fit)
+fit1 <- optim(c(0.5, 1, 1), sin_fit, method="BFGS")
 fit1
 
 # plot result
