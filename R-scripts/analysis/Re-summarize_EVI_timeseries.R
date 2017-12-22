@@ -13,6 +13,7 @@ library(viridis)
 library(car)
 library(lubridate)
 library(INLA)
+library(parallel)
 
 
 #### Load data ####
@@ -143,29 +144,42 @@ time_subset <- year(dates) < 2013
 # specify model
 formula  = y ~  trend + sinwave + f(month, model="seasonal", season.length=12, param=c(1,0.0001)) #+ f(time, model="rw1", param=c(100, 0.0001))
   
-# iteratively fit to all cells
-for (i in 1:n.cells) {
-  y <- evi_mat[i, time_subset]
+# function to do fit to one cell 
+inla.ts.fit <- function(y, ts_dates, time_scalar, time_shift) {
+  require(lubridate)
+  require(INLA)
   n <- length(y)
   d = data.frame(y=y, time=1:n)
-  d$trend = scale((1:n)/230, center=T, scale=F) # make trend into a rate per decade, centered at 0
-  d$month = month(dates[time_subset]) 
-  d$doy = yday(dates[time_subset])
-  d$sinwave = sin((d$doy-91)/365 * 2*pi) # slide sine wave back 1/4 year
+  d$trend = scale((1:n)/time_scalar, center=T, scale=F) # make trend into a rate per decade, centered at 0
+  d$month = month(ts_dates) 
+  d$doy = yday(ts_dates)
+  d$sinwave = sin((d$doy-time_shift)/365 * 2*pi) # slide sine wave back 1/4 year
   mod = inla(formula, family="gaussian", data=d)
-  seas.amp[i] <- mod$summary.fixed$mean[3]
-  seas.amp.025[i] <- mod$summary.fixed$`0.025quant`[3]
-  seas.amp.975[i] <- mod$summary.fixed$`0.975quant`[3]
-  mean.evi[i] <- mod$summary.fixed$mean[1] 
-  mean.evi.025[i] <- mod$summary.fixed$`0.025quant`[1]
-  mean.evi.975[i] <- mod$summary.fixed$`0.975quant`[1]
-  trend.evi[i] <- mod$summary.fixed$mean[2]
-  trend.evi.025[i] <- mod$summary.fixed$`0.025quant`[2]
-  trend.evi.975[i] <- mod$summary.fixed$`0.975quant`[2]
-  if(!i%%100) print(i)
+  seas.amp <- mod$summary.fixed$mean[3]
+  seas.amp.025 <- mod$summary.fixed$`0.025quant`[3]
+  seas.amp.975 <- mod$summary.fixed$`0.975quant`[3]
+  mean.evi <- mod$summary.fixed$mean[1] 
+  mean.evi.025 <- mod$summary.fixed$`0.025quant`[1]
+  mean.evi.975 <- mod$summary.fixed$`0.975quant`[1]
+  trend.evi <- mod$summary.fixed$mean[2]
+  trend.evi.025 <- mod$summary.fixed$`0.025quant`[2]
+  trend.evi.975 <- mod$summary.fixed$`0.975quant`[2]
+  return(c(seas.amp, seas.amp.025, seas.amp.975, mean.evi, mean.evi.025, mean.evi.975, trend.evi, trend.evi.025, trend.evi.975))
 }
 
-evi_summary <- data.frame(seas.amp, seas.amp.025, seas.amp.975, mean.evi, mean.evi.025, mean.evi.975, trend.evi, trend.evi.025, trend.evi.975, sig.trend=as.integer((trend.evi.025*trend.evi.975)>0), sig.amp=as.integer((seas.amp.025*seas.amp.975)>0))
+# Test on a few cells 
+system.time(apply(evi_mat[1:14,time_subset], 1, inla.ts.fit, ts_dates=dates[time_subset], time_scalar=230, time_shift=91))
+
+# Test in parallel 
+no.cores <- detectCores() - 1
+cl <- makeCluster(no.cores, type="FORK")
+system.time(parRapply(cl=cl, evi_mat[1:14, time_subset], inla.ts.fit, ts_dates=dates[time_subset], time_scalar=230, time_shift=91))
+# runs 3x as fast, whole analysis should take ~3.5 hours  
+# note it returns all the values in a long vector that's n.cells * 9 long
+
+# Run in parallel
+fit.allcells <- parRapply(cl=cl, evi_mat[1:14, time_subset], inla.ts.fit, ts_dates=dates[time_subset], time_scalar=230, time_shift=91)
+
 
 
 ## Add the mortality data 
