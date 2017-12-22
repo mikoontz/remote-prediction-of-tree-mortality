@@ -34,10 +34,14 @@ dates = strptime(date_codes, "%Y%m%d")
 # Get the locations of the target pixels 
 # EVI template raster 
 evi_template = raster("features/sierra-nevada-250m-evi-template.tif")
+# Get target pixels
+load("features/target_pixels.Rdata")
 
 # load one mortality layer as a template
 mort_template = raster("features/ADS-rasterized/Y2015_sp122.tif")
 mort_2015_2016 = raster("features/ADS-rasterized/Y2015_spALL.tif") + raster("features/ADS-rasterized/Y2016_spALL.tif")
+# reproject to same projection as EVI data
+mort_albers <- projectRaster(mort_2015_2016, evi_template)
 
 # Load EVI matrix
 load("features/working-files/evi_data_matrix_jepson_PPN+SMC_central+south.Rdata")
@@ -65,7 +69,7 @@ for (i in 1:16) plot(evi_mat[i*1000,], pch=16, cex=0.5, col="slateblue")
 # how many observations per year? 
 table(year(dates))
 
-time_subset <- year(dates)>2000 & year(dates) < 2014
+time_subset <- year(dates)>1999 & year(dates) < 2013
 
 m <- arima(evi_mat[3000,time_subset], order = c(1, 0, 0), seasonal = list(order=c(0,1,1), period=23))
 coef(m)
@@ -82,101 +86,86 @@ wave_fit <- function(x) {
   return(sum((y-yhat)^2, na.rm=T))
 }
 
-y <- evi_mat[3000,time_subset]
-seas.time <- ((1:n) %% 23)/23 * (2*pi)
+y <- evi_mat[1000,time_subset]
+seas.time <- yday(dates[time_subset])/365 * 2*pi #((1:n) %% 23)/23 * (2*pi)
 n <- length(y)
-fit1 <- optim(c(0.5, 1, 1), sin_fit, method="BFGS")
+fit1 <- optim(c(0.3, 0.5, 1), sin_fit, method="BFGS")
 fit1
+# note that it tends to slide the sine wave back by 1/4 year, making jan 1 the trough and jul 1 the peak, which is what we'd expect
 
 # plot result
 plot(1:n, y, cex=0.7)
 lines(1:n, fit1$par[1] + fit1$par[2]*sin(seas.time+fit1$par[3]), col="cyan4", lwd=3)
 
+
+
 # INLA version
-y <- evi_mat[2000,time_subset]
+y <- evi_mat[3000, time_subset]
 n <- length(y)
-d = data.frame(y=y, trend = 1:n, seasonal=1:n)
-formula  = y ~  f(trend, model="rw2", cyclic=FALSE, param=c(1,0.0001)) + f(seasonal,model="seasonal",season.length=23,param=c(1,0.1))
-mod = inla(formula, family="gaussian", data=d, control.family=list(param=c(4,4)), control.predictor = list(link = 1))
+d = data.frame(y=y, time=1:n)
+d$trend = scale((1:n)/230, center=T, scale=F) # make trend into a rate per decade, centered at 0
+d$month = month(dates[time_subset]) 
+d$doy = yday(dates[time_subset])
+d$sinwave = sin((d$doy-91)/365 * 2*pi) # slide sine wave back 1/4 year
+
+# trend as random effect
+#formula  = y ~  f(trend, model="ar1", cyclic=FALSE, param=c(1,0.0001)) + f(month, model="seasonal", season.length=12, param=c(1,0.001))
+# trend as fixed effect
+formula  = y ~  trend + sinwave + f(month, model="seasonal", season.length=12, param=c(1,0.0001)) #+ f(time, model="rw1", param=c(100, 0.0001))
+
+mod = inla(formula, family="gaussian", data=d)
 summary(mod)
 
-plot(mod$summary.fitted.values$mean, pch=16, cex=0.7, col="blue")
-points(y,  pch=16, cex=0.7, col="red")
-lines(mod$summary.random$seasonal$mean + mod$summary.fixed$mean)
-lines(mod$summary.random$trend$mean + mod$summary.fixed$mean, col="darkgray", lwd=2)
-
-
-
-
 plot(mod, plot.fixed.effects=F, plot.random.effects=T, plot.lincomb = FALSE, plot.hyperparameters = FALSE, plot.predictor = FALSE, plot.q = FALSE, plot.cpo = FALSE)
-### Make single-number summaries of EVI time series and store in data frame
 
-# Summarize extracted values into data frame
-evi_summary = data.frame(cell_number=as.integer(rownames(evi_mat)))
-evi_summary$evi_mean = apply(evi_mat[,time_index], 1, mean, na.rm=T)
-evi_summary$evi_mayjun = apply(evi_mat[,dates$mon %in% c(4, 5) & dates$year <= (endyear-1900) & dates$year >= (startyear-1900) ], 1, mean, na.rm=T)
-evi_summary$evi_augsept = apply(evi_mat[,dates$mon %in% c(7,8) & dates$year <= (endyear-1900) & dates$year >= (startyear-1900) ], 1, mean, na.rm=T)
-evi_summary$seas_change = evi_summary$evi_mayjun - evi_summary$evi_augsept
-evi_summary$seas_change_prop = (evi_summary$evi_augsept/evi_summary$evi_mayjun)-1
-evi_summary$total_var = apply(evi_mat[,time_index], 1, var, na.rm=T)
+#plot(y~month, d)
+#lines(d$month, d$sinwave*mod$summary.fixed$mean[3] + mod$summary.fixed$mean[1], col="blue" )
 
-# wet-year vs dry-year difference in late-season EVI
-# define wet years as 2000, 2005, 2006, 2010, 2011
-# define dry years as 2002, 2007 ( could also include 2013 if that year's in the training data)
-wetmean = apply(evi_mat[,dates$year %in% c(100,105, 106, 2010, 2011) & dates$mon %in% c(7,8)], 1, mean, na.rm=T)
-drymean = apply(evi_mat[,dates$year %in% c(102,107, 113) & dates$mon %in% c(7,8)], 1, mean, na.rm=T) # Q whether to include 2013 here
-evi_summary$wet_dry_diff = wetmean-drymean
-evi_summary$wet_dry_propdiff = drymean/wetmean-1
+# amplitude as difference of min and max REs
+#max(mod$summary.random$month$mean) - min(mod$summary.random$month$mean)
 
-# add trends
-linear_time = scale(as.integer(dates[1:length(dates)]-dates[1]))
-# Note this is slow with many pixels and should be parallelized! 
-system.time(for (i in 1:nrow(evi_mat)) evi_summary$linear_trend[i] = coef(lm(evi_mat[i,time_index]~linear_time[time_index]))[2])
+# amplitude as effect of sine wave * 2 (effect at max minus min value of the sine wave)
+mod$summary.fixed$mean[3]*2
 
-# partition variance
-years = (startyear-1900):(endyear-1900)
-ncells = nrow(evi_mat)
-annual.mean = matrix(NA, nrow=ncells, ncol=length(years))
-annual.var = matrix(NA, nrow=ncells, ncol=length(years))
-for (i in 1:length(years)) {
-    timeind = dates$year == years[i] & dates$mon %in% c(5,6,7,8,9)
-  for (j in 1:ncells) {
-    annual.mean[j,i] = mean(evi_mat[j,timeind], na.rm=T)
-    annual.var[j,i] = var(evi_mat[j,timeind], na.rm=T)
-  }
+# level (intercept, which is mean EVI at middle of the time series and at the mean seasonality value)
+mod$summary.fixed[1,]
+
+# trend (change in EVI per decade)
+mod$summary.fixed[2,]
+
+
+
+#### Apply INLA model to all pixels and extract these coef values 
+n.cells <- nrow(evi_mat)
+seas.amp <- seas.amp.025 <- seas.amp.975  <- mean.evi <- mean.evi.025 <- mean.evi.975 <- trend.evi <- trend.evi.025 <- trend.evi.975 <- rep(NA, n.cells)
+time_subset <- year(dates) < 2013
+
+# specify model
+formula  = y ~  trend + sinwave + f(month, model="seasonal", season.length=12, param=c(1,0.0001)) #+ f(time, model="rw1", param=c(100, 0.0001))
+  
+# iteratively fit to all cells
+for (i in 1:n.cells) {
+  y <- evi_mat[i, time_subset]
+  n <- length(y)
+  d = data.frame(y=y, time=1:n)
+  d$trend = scale((1:n)/230, center=T, scale=F) # make trend into a rate per decade, centered at 0
+  d$month = month(dates[time_subset]) 
+  d$doy = yday(dates[time_subset])
+  d$sinwave = sin((d$doy-91)/365 * 2*pi) # slide sine wave back 1/4 year
+  mod = inla(formula, family="gaussian", data=d)
+  seas.amp[i] <- mod$summary.fixed$mean[3]
+  seas.amp.025[i] <- mod$summary.fixed$`0.025quant`[3]
+  seas.amp.975[i] <- mod$summary.fixed$`0.975quant`[3]
+  mean.evi[i] <- mod$summary.fixed$mean[1] 
+  mean.evi.025[i] <- mod$summary.fixed$`0.025quant`[1]
+  mean.evi.975[i] <- mod$summary.fixed$`0.975quant`[1]
+  trend.evi[i] <- mod$summary.fixed$mean[2]
+  trend.evi.025[i] <- mod$summary.fixed$`0.025quant`[2]
+  trend.evi.975[i] <- mod$summary.fixed$`0.975quant`[2]
+  if(!i%%100) print(i)
 }
 
-# within-year variance
-evi_summary$within_year_var = apply(annual.var, 1, mean, na.rm=T)
-evi_summary$within_year_sd = sqrt(evi_summary$within_year_var)
-
-# among-year variance
-evi_summary$among_year_var = apply(annual.mean, 1, var, na.rm=T)
-evi_summary$among_year_sd = sqrt(evi_summary$among_year_var)
-
-# ratio of among-to-within-year variance 
-evi_summary$among_to_within_ratio = evi_summary$among_year_var / evi_summary$within_year_var
-
-
-
-
-### Quick look 
-sub = sample(1:nrow(evi_mat), size=500, replace=FALSE)
-#pairs(evi_summary[sub,])
-
-## Check variance outliers
-# Note removing the disturbed pixels seems to have removed the very high variance outliers
-# look at cells with high within-year variance 
-outliers = which(evi_summary$within_year_var>0.01)
-par(mfrow=c(5,5), mar=rep(2,4))
-for (i in 1:25) plot(evi_mat[outliers[i],dates$mon %in% c(5,6,7,8,9)]~linear_time[dates$mon %in% c(5,6,7,8,9)], pch=16, cex=0.5, ylim=c(0, 1))
-title("timeseries of EVI 2000-2016")
-# same for high among-year variance 
-outliers = which(evi_summary$among_year_var>0.002)
-par(mfrow=c(5,5), mar=rep(2,4))
-for (i in 1:25) plot(evi_mat[outliers[i],dates$mon %in% c(5,6,7,8,9)]~linear_time[dates$mon %in% c(5,6,7,8,9)], pch=16, cex=0.5, ylim=c(0, 1))
-title("timeseries of EVI 2000-2016")
-# these seem now to represent mainly cell with strong time-trends
+evi_summary <- data.frame(seas.amp, seas.amp.025, seas.amp.975, mean.evi, mean.evi.025, mean.evi.975, trend.evi, trend.evi.025, trend.evi.975, sig.trend=as.integer((trend.evi.025*trend.evi.975)>0), sig.amp=as.integer((seas.amp.025*seas.amp.975)>0))
 
 
 ## Add the mortality data 
@@ -184,22 +173,18 @@ mort_masked = mask(mort_albers, target_pixels, maskvalue=0)
 evi_summary$mort = getValues(mort_masked)[as.integer(rownames(evi_mat))]
 pairs(evi_summary[sub,])
 
-x = as.matrix(cor(evi_summary[evi_summary$among_year_var<0.002 & evi_summary$within_year_var<0.005,], use="pairwise.complete"))
-heatmap(x, col=viridis(12))
-x
-
 # Clean out NAs
 evi_summary = evi_summary[complete.cases(evi_summary),]
 dim(evi_summary)
 
 # Store intermediate file 
-save(evi_summary, file="features/working-files/evi_summary_PPN+SMC_jepson_central+south.Rdata")
+save(evi_summary, file="features/working-files/evi_summary_new_PPN+SMC_jepson_central+south.Rdata")
 
 
 ############################################
 # Do some simple regressions
 
-load("features/working-files/evi_summary_PPN+SMC_jepson_central+south.Rdata")
+load("features/working-files/evi_summary_new_PPN+SMC_jepson_central+south.Rdata")
 evi_template = raster("features/sierra-nevada-250m-evi-template.tif")
 
 
