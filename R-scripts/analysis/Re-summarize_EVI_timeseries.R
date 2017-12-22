@@ -144,8 +144,8 @@ time_subset <- year(dates) < 2013
 # specify model
 formula  = y ~  trend + sinwave + f(month, model="seasonal", season.length=12, param=c(1,0.0001)) #+ f(time, model="rw1", param=c(100, 0.0001))
   
-# function to do fit to one cell 
-inla.ts.fit <- function(y, ts_dates, time_scalar, time_shift) {
+# function to fit inla model in to one cell 
+inla.ts.fit <- function(y, ts_dates, time_scalar, time_shift, formula) {
   require(lubridate)
   require(INLA)
   n <- length(y)
@@ -168,32 +168,36 @@ inla.ts.fit <- function(y, ts_dates, time_scalar, time_shift) {
 }
 
 # Test on a few cells 
-system.time(apply(evi_mat[1:14,time_subset], 1, inla.ts.fit, ts_dates=dates[time_subset], time_scalar=230, time_shift=91))
+system.time(apply(evi_mat[1:14,time_subset], 1, inla.ts.fit, ts_dates=dates[time_subset], time_scalar=230, time_shift=91, formula=formula))
 
 # Test in parallel 
 no.cores <- detectCores() - 1
 cl <- makeCluster(no.cores, type="FORK")
-system.time(parRapply(cl=cl, evi_mat[1:14, time_subset], inla.ts.fit, ts_dates=dates[time_subset], time_scalar=230, time_shift=91))
-# runs 3x as fast, whole analysis should take ~3.5 hours  
+system.time(parRapply(cl=cl, evi_mat[1:14, time_subset], inla.ts.fit, ts_dates=dates[time_subset], time_scalar=230, time_shift=91, formul=formula))
+# runs 3x as fast, whole analysis should take ~3.75 hours  
 # note it returns all the values in a long vector that's n.cells * 9 long
 
 # Run in parallel
-fit.allcells <- parRapply(cl=cl, evi_mat[1:14, time_subset], inla.ts.fit, ts_dates=dates[time_subset], time_scalar=230, time_shift=91)
+fit.vec <- parRapply(cl=cl, evi_mat[1:14, time_subset], inla.ts.fit, ts_dates=dates[time_subset], time_scalar=230, time_shift=91, formula=formula)
 
+# Reformat output 
+evi_summary <- matrix(fit.vec, nrow=n.cells, byrow=TRUE)
+evi_summary <- as.data.frame(evi_summary)
+rownames(evi_summary) = rownames(evi_mat)
+names(evi_summary) = c("seas.amp", "seas.amp.025", "seas.amp.975", "mean.evi", "mean.evi.025", "mean.evi.975", "trend.evi", "trend.evi.025", "trend.evi.975")
 
 
 ## Add the mortality data 
 mort_masked = mask(mort_albers, target_pixels, maskvalue=0)
-evi_summary$mort = getValues(mort_masked)[as.integer(rownames(evi_mat))]
-pairs(evi_summary[sub,])
+evi_summary$mort = getValues(mort_masked)[as.integer(rownames(evi_summary))]
 
-# Clean out NAs
-evi_summary = evi_summary[complete.cases(evi_summary),]
 dim(evi_summary)
 
 # Store intermediate file 
 save(evi_summary, file="features/working-files/evi_summary_new_PPN+SMC_jepson_central+south.Rdata")
 
+
+### STOPPED HERE 12/22
 
 ############################################
 # Do some simple regressions
