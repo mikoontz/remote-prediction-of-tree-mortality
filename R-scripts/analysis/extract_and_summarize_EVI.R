@@ -1,6 +1,9 @@
 ### This script: 
 ## 1) creates a raster stack from the 16-day EVI files exported by Mike
 ## 2) pulls the data values out of these to create a data matrix.
+## 2.1) Reads in a raster stack of climate (temp and ppt data) created by the extract_climate.R script
+## 2.2) Pulls the data out of the climate stack to create a data matrix, where rows of the climate matrix match rows of the EVI matrix (after removing irrelevant cells)
+#       Also pulls cell X,Y data into the first two columns of the climate data matrix
 ## 3) generates summary statistics for the time series of EVI values for each pixel from 2000-2013.
 ## 4) Does simple correlation and regression analysis to test which of these summary stats predicts mortality in 2015-16.
 ## 5) displays summary stats and model predictions as a plotted raster.
@@ -173,6 +176,53 @@ forest_mask[target_cover>=80] = 1
 plot(forest_mask, col=rev(viridis(16)), bty="n", box=FALSE, xaxt="n", yaxt="n", legend=FALSE)
 # Plot to show what resulting data looks like 
 plot_to_region(rep(1, length(evi_summary$cell_number)), evi_summary$cell_number,subset_layer_albers)
+
+
+
+### Generate a climate data matrix
+
+# Load climate data
+ppt_stack <- stack("features/climate-layers-stacked-projected/ppt-monthly.grd")
+tmp_stack <- stack("features/climate-layers-stacked-projected/tmp-monthly.grd")
+
+# Check that the climate grids match the EVI grid
+extent(evi_stack) == extent(ppt_stack)
+res(evi_stack) == res(ppt_stack)
+origin(evi_stack) == origin(ppt_stack)
+proj4string(evi_stack) == proj4string(ppt_stack)
+  # they do
+
+ppt_mat <- getValues(ppt_stack)
+rownames(ppt_mat) <- as.character(1:length(evi_template)) # only need to set row names for ppt_mat (not also tmp_mat) because when cbind-ed, the ppt_mat rownames get applied to both
+tmp_mat <- getValues(tmp_stack)
+
+cell_coords <- as.data.frame(rasterToPoints(evi_template))[,c("x","y")]
+rownames(cell_coords) = as.character(1:length(evi_template))
+
+gc()
+
+# retain only the climate (and cell coordinate) matrix rows corresponding to the rows in the evi matrix (same procedure done for EVI matrix)
+ppt_mat = ppt_mat[evi_mask_index & evi_target_index & disturb_index,]
+tmp_mat = tmp_mat[evi_mask_index & evi_target_index & disturb_index,]
+cell_coords = cell_coords[evi_mask_index & evi_target_index & disturb_index,]
+
+gc()
+
+# cbind the matrices of the two climate variables into a single climate matrix
+clim_mat <- cbind(ppt_mat,tmp_mat)
+
+# Remove the climate rows that have no EVI data, if any
+clim_mat = clim_mat[z>0,]
+cell_coords = cell_coords[z>0,]
+
+# add cell coordinates to climate data
+clim_mat <- cbind(cell_coords,clim_mat)
+
+save(clim_mat, file="features/working-files/climate_data_matrix_jepson_PPN+SMC_central+south.Rdata")
+
+
+
+
 
 
 

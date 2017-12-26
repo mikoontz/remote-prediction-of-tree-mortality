@@ -1,6 +1,7 @@
 ### This script: 
-## 1) loads the data matrix creates by "extract_and_summarize_EVI.R" script. The matrix contains EVI values for filtered pixels from 2000-2013
+## 1) loads the EVI data matrix created by "extract_and_summarize_EVI.R" script. The matrix contains EVI values for filtered pixels from 2000-2013
 ## 2) Summarizes these time series to get features to use to predict mortality in 2015-16. 
+## 3) loads the climate (and x,y coordinate) data matrix created by "extract_and_summarize_EVI.R"
 
 
 library(sp)
@@ -172,13 +173,14 @@ system.time(apply(evi_mat[1:14,time_subset], 1, inla.ts.fit, ts_dates=dates[time
 
 # Test in parallel 
 no.cores <- detectCores() - 1
+cl <- makeCluster(no.cores) # for Windows
 cl <- makeCluster(no.cores, type="FORK")
 system.time(parRapply(cl=cl, evi_mat[1:14, time_subset], inla.ts.fit, ts_dates=dates[time_subset], time_scalar=230, time_shift=91, formul=formula))
 # runs 3x as fast, whole analysis should take ~3.75 hours  
 # note it returns all the values in a long vector that's n.cells * 9 long
 
 # Run in parallel
-fit.vec <- parRapply(cl=cl, evi_mat[1:14, time_subset], inla.ts.fit, ts_dates=dates[time_subset], time_scalar=230, time_shift=91, formula=formula)
+fit.vec <- parRapply(cl=cl, evi_mat[, time_subset], inla.ts.fit, ts_dates=dates[time_subset], time_scalar=230, time_shift=91, formula=formula)
 
 # Reformat output 
 evi_summary <- matrix(fit.vec, nrow=n.cells, byrow=TRUE)
@@ -197,7 +199,19 @@ dim(evi_summary)
 save(evi_summary, file="features/working-files/evi_summary_new_PPN+SMC_jepson_central+south.Rdata")
 
 
-### STOPPED HERE 12/22
+### AML STOPPED HERE 12/22
+
+### DY Resumed here 12/26 ###
+
+# load climate data (clim_mat), which also contains cell x,y coordinates (Albers I believe)
+load("features/working-files/climate_data_matrix_jepson_PPN+SMC_central+south.Rdata")
+
+# the rows of climate data (which also contains cell x,y coordinates) should match the rows of the evi_summary matrix
+# you could bind them by row number (simply cbind them) or by row names (which should also match)
+# I (Derek) did not do this yet because I could not get INLA to finish running for all cells (and thus generate evi_summary)
+
+
+
 
 ############################################
 # Do some simple regressions
