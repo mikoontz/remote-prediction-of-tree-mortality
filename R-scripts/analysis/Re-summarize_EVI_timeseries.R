@@ -73,7 +73,8 @@ table(year(dates))
 
 time_subset <- year(dates)>1999 & year(dates) < 2013
 
-m <- arima(evi_mat[3000,time_subset], order = c(1, 0, 0), seasonal = list(order=c(0,1,1), period=23))
+m <- arima(evi_mat[1000,time_subset], order = c(1, 0, 0), seasonal = list(order=c(0,1,1), period=23))
+
 coef(m)
 tsdiag(m)
 AIC(m)
@@ -142,10 +143,8 @@ n.cells <- nrow(evi_mat)
 seas.amp <- seas.amp.025 <- seas.amp.975  <- mean.evi <- mean.evi.025 <- mean.evi.975 <- trend.evi <- trend.evi.025 <- trend.evi.975 <- rep(NA, n.cells)
 time_subset <- year(dates) < 2013
 
-# specify model
-formula  = y ~  trend + sinwave + f(month, model="seasonal", season.length=12, param=c(1,0.0001)) #+ f(time, model="rw1", param=c(100, 0.0001))
-  
-# function to fit inla model in to one cell 
+
+# function to fit inla model to one time series 
 inla.ts.fit <- function(y, ts_dates, time_scalar, time_shift, formula) {
   require(lubridate)
   require(INLA)
@@ -168,26 +167,75 @@ inla.ts.fit <- function(y, ts_dates, time_scalar, time_shift, formula) {
   return(c(seas.amp, seas.amp.025, seas.amp.975, mean.evi, mean.evi.025, mean.evi.975, trend.evi, trend.evi.025, trend.evi.975))
 }
 
-# Test on a few cells 
-system.time(apply(evi_mat[1:14,time_subset], 1, inla.ts.fit, ts_dates=dates[time_subset], time_scalar=230, time_shift=91, formula=formula))
+lm.ts.fit <- function(y, ts_dates, time_scalar, time_shift, formula) {
+  require(lubridate)
+  if (sum(!is.na(y))<200) return(rep(NA, 12))
+  n <- length(y)
+  d = data.frame(y=y, time=1:n)
+  d$trend = scale((1:n)/time_scalar, center=T, scale=F) # make trend into a rate per decade, centered at 0
+  d$month = month(ts_dates) 
+  d$doy = yday(ts_dates)
+  d$sinwave = sin((d$doy-time_shift)/365 * 2*pi) # slide sine wave back 1/4 year
+  mod <- lm(formula, data=d)
+  coefs <- coef(summary(mod))
+  seas.amp <- coefs[3,1]
+  seas.amp.sd <- coefs[3,2]
+  seas.amp.p <- coefs[3,4]
+  mean.evi <- coefs[1,1]
+  mean.evi.sd <- coefs[1,2]
+  mean.evi.p <- coefs[1,4]
+  trend.evi <- coefs[2,1]
+  trend.evi.sd <- coefs[2,2]
+  trend.evi.p <- coefs[2,4]
+  amp.trend <- coefs[4, 1]
+  amp.trend.sd <- coefs[4, 2]
+  amp.trend.p <- coefs[4, 4]
+  return(c(seas.amp, seas.amp.sd, seas.amp.p, mean.evi, mean.evi.sd, mean.evi.p, trend.evi, trend.evi.sd, trend.evi.p, amp.trend, amp.trend.sd, amp.trend.p))
+}
 
-# Test in parallel 
+# LM version
+# specify model
+formula  = y ~  trend + sinwave + trend:sinwave
+system.time(apply(evi_mat[3001:3002,time_subset], 1, lm.ts.fit, ts_dates=dates[time_subset], time_scalar=230, time_shift=91, formula=formula))
+mod = lm.ts.fit(evi_mat[3000,time_subset], ts_dates=dates[time_subset], time_scalar=230, time_shift=91, formula=formula)
+mod
+
+
+# Test on a few cells 
+system.time(apply(evi_mat[3001:3002,time_subset], 1, lm.ts.fit, ts_dates=dates[time_subset], time_scalar=230, time_shift=91, formula=formula))
+
+lmfit <- apply(evi_mat[,time_subset], 1, lm.ts.fit, ts_dates=dates[time_subset], time_scalar=230, time_shift=91, formula=formula)
+dim(lmfit)
+
+
+# set up cluster
 no.cores <- detectCores() - 1
 cl <- makeCluster(no.cores) # for Windows
 cl <- makeCluster(no.cores, type="FORK")
-system.time(parRapply(cl=cl, evi_mat[1:14, time_subset], inla.ts.fit, ts_dates=dates[time_subset], time_scalar=230, time_shift=91, formul=formula))
-# runs 3x as fast, whole analysis should take ~3.75 hours  
-# note it returns all the values in a long vector that's n.cells * 9 long
 
+# test
+which.cells <- 3001:3020
+fit.vec <- parRapply(cl=cl, evi_mat[which.cells, time_subset], lm.ts.fit, ts_dates=dates[time_subset], time_scalar=230, time_shift=91, formula=formula)
+
+# fit all cells
+fit.vec <- parRapply(cl=cl, evi_mat[, time_subset], lm.ts.fit, ts_dates=dates[time_subset], time_scalar=230, time_shift=91, formula=formula)
+
+# INLA version
 # Run in parallel
-fit.vec <- parRapply(cl=cl, evi_mat[, time_subset], inla.ts.fit, ts_dates=dates[time_subset], time_scalar=230, time_shift=91, formula=formula)
+
 
 # Reformat output 
-evi_summary <- matrix(fit.vec, nrow=n.cells, byrow=TRUE)
-evi_summary <- as.data.frame(evi_summary)
+#evi_summary <- matrix(fit.vec, nrow=nrow(evi_mat), byrow=TRUE)
+#evi_summary <- as.data.frame(evi_summary)
+evi_summary <- as.data.frame(t(lmfit))
 rownames(evi_summary) = rownames(evi_mat)
-names(evi_summary) = c("seas.amp", "seas.amp.025", "seas.amp.975", "mean.evi", "mean.evi.025", "mean.evi.975", "trend.evi", "trend.evi.025", "trend.evi.975")
-
+evi_summary$cell_number = as.integer(rownames(evi_mat))
+names(evi_summary) = c("seas.amp", "seas.amp.sd", "seas.amp.p", "mean.evi", "mean.evi.sd", "mean.evi.p", "trend.evi", "trend.evi.sd","trend.evi.p",  "amp.trend", "amp.trend.sd", "amp.trend.p")
+head(evi_summary)
+hist(evi_summary$mean.evi)
+hist(evi_summary$trend.evi)
+hist(evi_summary$seas.amp)
+range(evi_summary$seas.amp)
 
 ## Add the mortality data 
 mort_masked = mask(mort_albers, target_pixels, maskvalue=0)
@@ -218,11 +266,13 @@ load("features/working-files/climate_data_matrix_jepson_PPN+SMC_central+south.Rd
 
 load("features/working-files/evi_summary_new_PPN+SMC_jepson_central+south.Rdata")
 evi_template = raster("features/sierra-nevada-250m-evi-template.tif")
-
+subset_layer = shapefile("features/jepson-central+southern-outline.shp")
+subset_layer_albers = spTransform(subset_layer, albers.proj)
+target_pixels = mask(target_pixels, subset_layer_albers, updatevalue=0)
 
 ### Run a simple model to check associations -- use tobit model in vgam library
 hist(evi_summary$mort)
-cols_to_standardize = c("evi_mean", "seas_change", "within_year_sd", "among_year_sd", "wet_dry_diff", "linear_trend")
+cols_to_standardize = c("evi.mean", "evi.mean", "evi.mean", "among_year_sd", "wet_dry_diff", "linear_trend")
 for (i in 1:length(cols_to_standardize)) evi_summary[,cols_to_standardize[i]] = scale(evi_summary[,cols_to_standardize[i]])
 
 # check for correlation in explanatory variables
@@ -256,10 +306,12 @@ plot_to_region <- function(cell.values, cell.index, crop_layer) { # index is the
 
 # plot some EVI summaries
 # make a template for plotting 
-load("features/target_pixels.Rdata")
 target_pixels_na = target_pixels
 target_pixels_na[target_pixels_na==0] = NA
-plot_to_region(evi_summary$evi_mean, evi_summary$cell_number,subset_layer_albers); title("mean EVI")
+plot_to_region(evi_summary$mean.evi, evi_summary$cell_number, target_pixels_na); title("mean EVI")
+plot_to_region(evi_summary$seas.amp, evi_summary$cell_number, target_pixels_na); title("EVI seasonal amplitude")
+plot_to_region(evi_summary$trend.evi, evi_summary$cell_number, target_pixels_na); title("EVI trend")
+plot_to_region(evi_summary$amp.trend, evi_summary$cell_number, target_pixels_na); title("Trend in amplitude")
 
 plot_to_region(evi_summary$seas_change, evi_summary$cell_number, subset_layer_albers); title("Early-season EVI minus late-season EVI", cex.main=0.7)
 plot_to_region(sqrt(evi_summary$among_year_var-min(evi_summary$among_year_var)), evi_summary$cell_number, subset_layer_albers); title("among-year sd")
