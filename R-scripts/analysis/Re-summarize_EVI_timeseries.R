@@ -168,6 +168,7 @@ inla.ts.fit <- function(y, ts_dates, time_scalar, time_shift, formula) {
 
 lm.ts.fit <- function(y, ts_dates, time_scalar, time_shift, formula) {
   require(lubridate)
+  if (sum(!is.na(y))<200) return(rep(NA, 12))
   n <- length(y)
   d = data.frame(y=y, time=1:n)
   d$trend = scale((1:n)/time_scalar, center=T, scale=F) # make trend into a rate per decade, centered at 0
@@ -200,10 +201,10 @@ mod
 
 
 # Test on a few cells 
-system.time(apply(evi_mat[3001:3002,time_subset], 1, inla.ts.fit, ts_dates=dates[time_subset], time_scalar=230, time_shift=91, formula=formula))
+system.time(apply(evi_mat[3001:3002,time_subset], 1, lm.ts.fit, ts_dates=dates[time_subset], time_scalar=230, time_shift=91, formula=formula))
 
 lmfit <- apply(evi_mat[,time_subset], 1, lm.ts.fit, ts_dates=dates[time_subset], time_scalar=230, time_shift=91, formula=formula)
-
+dim(lmfit)
 
 
 # set up cluster
@@ -223,9 +224,11 @@ which.cells <- 3001:5000
 fit.vec <- parRapply(cl=cl, evi_mat[which.cells, time_subset], inla.ts.fit, ts_dates=dates[time_subset], time_scalar=230, time_shift=91, formula=formula)
 
 # Reformat output 
-evi_summary <- matrix(fit.vec, nrow=nrow(evi_mat), byrow=TRUE)
-evi_summary <- as.data.frame(evi_summary)
+#evi_summary <- matrix(fit.vec, nrow=nrow(evi_mat), byrow=TRUE)
+#evi_summary <- as.data.frame(evi_summary)
+evi_summary <- as.data.frame(t(lmfit))
 rownames(evi_summary) = rownames(evi_mat)
+evi_summary$cell_number = as.integer(rownames(evi_mat))
 names(evi_summary) = c("seas.amp", "seas.amp.sd", "seas.amp.p", "mean.evi", "mean.evi.sd", "mean.evi.p", "trend.evi", "trend.evi.sd","trend.evi.p",  "amp.trend", "amp.trend.sd", "amp.trend.p")
 head(evi_summary)
 hist(evi_summary$mean.evi)
@@ -250,7 +253,9 @@ save(evi_summary, file="features/working-files/evi_summary_new_PPN+SMC_jepson_ce
 
 load("features/working-files/evi_summary_new_PPN+SMC_jepson_central+south.Rdata")
 evi_template = raster("features/sierra-nevada-250m-evi-template.tif")
-
+subset_layer = shapefile("features/jepson-central+southern-outline.shp")
+subset_layer_albers = spTransform(subset_layer, albers.proj)
+target_pixels = mask(target_pixels, subset_layer_albers, updatevalue=0)
 
 ### Run a simple model to check associations -- use tobit model in vgam library
 hist(evi_summary$mort)
@@ -288,10 +293,12 @@ plot_to_region <- function(cell.values, cell.index, crop_layer) { # index is the
 
 # plot some EVI summaries
 # make a template for plotting 
-load("features/target_pixels.Rdata")
 target_pixels_na = target_pixels
 target_pixels_na[target_pixels_na==0] = NA
-plot_to_region(evi_summary$evi_mean, evi_summary$cell_number,subset_layer_albers); title("mean EVI")
+plot_to_region(evi_summary$mean.evi, evi_summary$cell_number, target_pixels_na); title("mean EVI")
+plot_to_region(evi_summary$seas.amp, evi_summary$cell_number, target_pixels_na); title("EVI seasonal amplitude")
+plot_to_region(evi_summary$trend.evi, evi_summary$cell_number, target_pixels_na); title("EVI trend")
+plot_to_region(evi_summary$amp.trend, evi_summary$cell_number, target_pixels_na); title("Trend in amplitude")
 
 plot_to_region(evi_summary$seas_change, evi_summary$cell_number, subset_layer_albers); title("Early-season EVI minus late-season EVI", cex.main=0.7)
 plot_to_region(sqrt(evi_summary$among_year_var-min(evi_summary$among_year_var)), evi_summary$cell_number, subset_layer_albers); title("among-year sd")
