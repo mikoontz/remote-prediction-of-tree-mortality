@@ -100,26 +100,33 @@ fit1
 plot(1:n, y, cex=0.7)
 lines(1:n, fit1$par[1] + fit1$par[2]*sin(seas.time+fit1$par[3]), col="cyan4", lwd=3)
 
-
-
 # INLA version
-y <- evi_mat[3000, time_subset]
-n <- length(y)
-d = data.frame(y=y, time=1:n)
-d$trend = scale((1:n)/230, center=T, scale=F) # make trend into a rate per decade, centered at 0
-d$month = month(dates[time_subset]) 
-d$doy = yday(dates[time_subset])
-d$sinwave = sin((d$doy-91)/365 * 2*pi) # slide sine wave back 1/4 year
 
-# trend as random effect
+make_ts_data <- function(y, ts_dates) {
+  n <- length(y)
+  d = data.frame(y=y, time=1:n)
+  d$trend = scale((1:n)/230, center=T, scale=F) # make trend into a rate per decade, centered at 0
+  d$month = month(ts_dates) 
+  d$doy = yday(ts_dates)
+  d$sinwave = sin((d$doy-91)/365 * 2*pi) # slide sine wave back 1/4 year
+  return(d)
+}
+
+# Manual test
 #formula  = y ~  f(trend, model="ar1", cyclic=FALSE, param=c(1,0.0001)) + f(month, model="seasonal", season.length=12, param=c(1,0.001))
 # trend as fixed effect
-formula  = y ~  trend + sinwave + f(month, model="seasonal", season.length=12, param=c(1,0.0001)) #+ f(time, model="rw1", param=c(100, 0.0001))
-
+formula  = y ~  trend +  f(month, model="seasonal", season.length=12, param=c(1,0.0001)) #+ f(time, model="rw1", param=c(100, 0.0001))
 mod = inla(formula, family="gaussian", data=d)
 summary(mod)
-
 plot(mod, plot.fixed.effects=F, plot.random.effects=T, plot.lincomb = FALSE, plot.hyperparameters = FALSE, plot.predictor = FALSE, plot.q = FALSE, plot.cpo = FALSE)
+
+# fit and plot for a bunch of pixels 
+pixel_subset <- seq(1001, 16001, by=1000)
+for (i in 1:length(pixel_subset)) {
+  d <- make_ts_data(evi_mat[pixel_subset[i], time_subset], dates[time_subset])
+  mod <- inla(formula, family="gaussian", data=d)
+  plot(mod, plot.fixed.effects=F, plot.random.effects=T, plot.lincomb = FALSE, plot.hyperparameters = FALSE, plot.predictor = FALSE, plot.q = FALSE, plot.cpo = FALSE)
+}
 
 #plot(y~month, d)
 #lines(d$month, d$sinwave*mod$summary.fixed$mean[3] + mod$summary.fixed$mean[1], col="blue" )
@@ -267,7 +274,8 @@ load("features/working-files/climate_data_matrix_jepson_PPN+SMC_central+south.Rd
 load("features/working-files/evi_summary_new_PPN+SMC_jepson_central+south.Rdata")
 evi_template = raster("features/sierra-nevada-250m-evi-template.tif")
 subset_layer = shapefile("features/jepson-central+southern-outline.shp")
-subset_layer_albers = spTransform(subset_layer, albers.proj)
+#subset_layer_albers = spTransform(subset_layer, albers.proj)
+subset_layer_albers = subset_layer # shouldn't actually need reprojection
 target_pixels = mask(target_pixels, subset_layer_albers, updatevalue=0)
 
 ### Run a simple model to check associations -- use tobit model in vgam library
