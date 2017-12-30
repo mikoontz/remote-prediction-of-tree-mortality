@@ -22,13 +22,13 @@ evi_template = raster("features/sierra-nevada-250m-evi-template.tif")
 ## open and stack all PRISM layers
 
 
-years <- 2000:2016
+years <- 1999:2016
 months <- 1:12
 months.chr <- str_pad(months,width=2,side="left",pad="0")
 
 date <- paste0(rep(years,each=12),months.chr)
 
-folder <- "features/raw-climate-layers/prism-ppt/"
+folder <- "features/climate-layers-raw/prism-ppt/"
 prefix <- "PRISM_ppt_stable_4kmM3_"
 suffix <- "_bil.bil"
 
@@ -63,7 +63,7 @@ writeRaster(prism.ppt.template,"features/climate-layers-stacked-projected/ppt-mo
 ## open and stack all TopoWx layers
 
 
-years <- 2000:2016
+years <- 1999:2016
 months <- 1:12
 months.chr <- str_pad(months,width=2,side="left",pad="0")
 date <- paste0(rep(years,each=12),months.chr)
@@ -101,7 +101,7 @@ topowx.tmax.template <- raster::projectRaster(topowx.tmax.stack,evi_template)
 ## open and stack all TopoWx layers
 
 
-years <- 2000:2016
+years <- 1999:2016
 months <- 1:12
 months.chr <- str_pad(months,width=2,side="left",pad="0")
 date <- paste0(rep(years,each=12),months.chr)
