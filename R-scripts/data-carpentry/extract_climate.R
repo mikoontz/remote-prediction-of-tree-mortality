@@ -49,7 +49,7 @@ names(prism.ppt.stack) <- layer.names
 prism.ppt.template <- raster::projectRaster(prism.ppt.stack,evi_template)
 
 ## write projected prism data as a grd (which preserves layer names)
-writeRaster(prism.ppt.template,"features/climate-layers-stacked-projected/ppt-monthly.grd")
+writeRaster(prism.ppt.template,"features/climate-layers-stacked-projected/ppt-monthly.grd",overwrite=TRUE)
 
 
 
@@ -144,5 +144,5 @@ names(topowx.tmp.stack) <- layer.names
 topowx.tmp.template <- raster::projectRaster(topowx.tmp.stack,evi_template)
 
 ## write projected prism data as a grd (which preserves layer names)
-writeRaster(topowx.tmp.template,"features/climate-layers-stacked-projected/tmp-monthly.grd")
+writeRaster(topowx.tmp.template,"features/climate-layers-stacked-projected/tmp-monthly.grd",overwrite=TRUE)
 
