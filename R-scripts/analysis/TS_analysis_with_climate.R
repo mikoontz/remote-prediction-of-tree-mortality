@@ -48,6 +48,8 @@ mort_albers <- projectRaster(mort_2015_2016, evi_template)
 # Load EVI matrix
 load("features/working-files/evi_data_matrix_jepson_PPN+SMC_central+south.Rdata")
 
+# Load annual precipitation and temperature summaries
+clim_data <- read.csv("features/working-files/climate_data_summaries_jepson_PPN+SMC_central+south.csv")
 
 #### Summarize the EVI time series ####
 

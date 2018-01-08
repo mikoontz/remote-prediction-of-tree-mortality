@@ -75,3 +75,6 @@ coldata = clim_sp$wet_dry_diff
 cols = round(coldata-min(coldata))
 palette(viridis(max(cols)))
 plot(clim_sp, col = cols)
+
+m <- lm(sqrt(mort)~evi_mean * summer_temp_2008 * ppt_wy_2008 * wet_dry_diff, data=evi_summary_clim)
+plot(clim_sp$mort~predict(m), pch=".")
