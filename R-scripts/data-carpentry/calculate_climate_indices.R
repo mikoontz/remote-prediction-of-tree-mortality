@@ -12,7 +12,7 @@ ppt_mat <- as.data.frame(clim_mat[,3:206])
 #temp_mat$season <- ppt_mat$season <- ifelse(month%in%c(12,1,2),"Winter", ifelse(month%in%c(3,4,5),"Spring", ifelse(month%in%c(6,7,8), "Summer",ifelse(month%in%c(9,10,11),"Fall", NA))))
 
 # Calculate indices
-years <- 2000:2016
+years <- 1999:2016
 n.years <- length(years)
 n.cells <- nrow(clim_mat)
 ppt_wy = summer_temp = winter_temp = mean_temp = {}
