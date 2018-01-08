@@ -3,10 +3,12 @@
 # 2) Computes annual summaries (climate indices) from these. 
 # 3) cbinds these to the EVI data matrix 
 
+library(viridis)
+
 load("features/working-files/climate_data_matrix_jepson_PPN+SMC_central+south.Rdata")
 
-temp_mat <- as.data.frame(clim_mat[,207:410])
-ppt_mat <- as.data.frame(clim_mat[,3:206])
+temp_mat <- as.data.frame(clim_mat[,219:434])
+ppt_mat <- as.data.frame(clim_mat[,3:218])
 #temp_mat$month <- ppt_mat$month <- month <- rep(1:12, 17)
 #temp_mat$year <- ppt_mat$year <- rep(2000:2016, rep(12, 17))
 #temp_mat$season <- ppt_mat$season <- ifelse(month%in%c(12,1,2),"Winter", ifelse(month%in%c(3,4,5),"Spring", ifelse(month%in%c(6,7,8), "Summer",ifelse(month%in%c(9,10,11),"Fall", NA))))
@@ -29,17 +31,26 @@ mean_temp = as.data.frame(mean_temp)
 winter_temp = as.data.frame(winter_temp)
 summer_temp = as.data.frame(summer_temp)
 for (i in 1:16) {
-  names(ppt_wy)[i] <- paste("ppt_wy_", i+2000, sep="")
-  names(mean_temp)[i] <- paste("mean_temp_", i+2000, sep="")
-  names(winter_temp)[i] <- paste("winter_temp_", i+2000, sep="")
-  names(summer_temp)[i] <- paste("summer_temp_", i+2000, sep="")
+  names(ppt_wy)[i] <- paste("ppt_wy_", i+1999, sep="")
+  names(mean_temp)[i] <- paste("mean_temp_", i+1999, sep="")
+  names(winter_temp)[i] <- paste("winter_temp_", i+1999, sep="")
+  names(summer_temp)[i] <- paste("summer_temp_", i+1999, sep="")
 }
 
 clim_data <- cbind(clim_mat[,c("x", "y")], ppt_wy, mean_temp, winter_temp, summer_temp)
 head(clim_data)
 
-coldata = clim_data$ppt_wy_2001
+# Check by plotting
+coldata = clim_data$ppt_wy_2000
 cols = round(coldata-min(coldata))
 palette(viridis(max(cols)))
 plot(y~x, clim_data, col = cols)
+
+coldata = clim_data$summer_temp_2000
+cols = round(coldata-min(coldata))
+palette(heat.colors(max(cols)))
+plot(y~x, clim_data, col = cols)
+
+# Save to working files folder
+write.csv(clim_data, "features/working-files/climate_data_summaries_jepson_PPN+SMC_central+south.csv")
      
