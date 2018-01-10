@@ -1,8 +1,8 @@
 ### This script: 
 ## 1) loads the EVI data matrix created by "extract_and_summarize_EVI.R" script. The matrix contains EVI values for filtered pixels from 2000-2013
-## 2) Summarizes these time series to get features to use to predict mortality in 2015-16. 
-## 3) loads the climate (and x,y coordinate) data matrix created by "extract_and_summarize_EVI.R"
-
+## 2) loads the climate summaries produced by "calculate_climate_indices.R", and merges these with the EVI time series. Note there's some misalignment because the EVI is on a monthly time step and climate is currently on a monthly time step. 
+## 3) Analyzes the EVI time series to get features to use to predict mortality in 2015-16. 
+## 4) Does a quick check for associations between the features and observed mortality. 
 
 library(sp)
 library(raster)
@@ -40,16 +40,22 @@ evi_template = raster("features/sierra-nevada-250m-evi-template.tif")
 load("features/target_pixels.Rdata")
 
 # load one mortality layer as a template
+# Note: should already be on same projection as EVI data
 mort_template = raster("features/ADS-rasterized/Y2015_sp122.tif")
 mort_2015_2016 = raster("features/ADS-rasterized/Y2015_spALL.tif") + raster("features/ADS-rasterized/Y2016_spALL.tif")
-# reproject to same projection as EVI data
-mort_albers <- projectRaster(mort_2015_2016, evi_template)
 
 # Load EVI matrix
 load("features/working-files/evi_data_matrix_jepson_PPN+SMC_central+south.Rdata")
 
 # Load annual precipitation and temperature summaries
 clim_data <- read.csv("features/working-files/climate_data_summaries_jepson_PPN+SMC_central+south.csv")
+
+
+#### Merge weather and EVI data ####
+
+
+
+
 
 #### Summarize the EVI time series ####
 
