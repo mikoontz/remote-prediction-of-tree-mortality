@@ -80,6 +80,12 @@ evi_clim <- merge(evi_clim, tmp_long, by=c("mon_date", "cell_num"), all=FALSE)
 # save working file 
 save(evi_clim, file="features/working-files/evi_and_climate_longformat_jepson_PPN+SMC_central+south.Rdata")
 
+# quick check of merge output
+length(unique(evi_clim$cell_num))
+dim(evi_mat) # all cells present 
+plot(evi_clim$date[evi_clim$cell_num==1166529], evi_clim$evi[evi_clim$cell_num==1166529])
+summary(lm(evi~ppt*tmp, data=evi_clim, subset = evi_clim$cell_num==1166529))
+summary(lm(evi~ppt*tmp, data=evi_clim))
 
 
 
