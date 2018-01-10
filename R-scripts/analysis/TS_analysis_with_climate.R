@@ -74,10 +74,11 @@ evi_long <- gather(evi_ts, cell_num, evi, num_range("", 1166529:3212104), factor
 ppt_long <- gather(ppt_ts, cell_num, ppt, num_range("", 1166529:3212104), factor_key = FALSE)
 tmp_long <- gather(tmp_ts, cell_num, tmp, num_range("", 1166529:3212104), factor_key = FALSE)
 
-evi_clim <- merge(ppt_long, evi_long, by=c("mon_date", "cell_num"), all=TRUE)
+evi_clim <- merge(ppt_long, evi_long, by=c("mon_date", "cell_num"), all=FALSE)
+evi_clim <- merge(evi_clim, tmp_long, by=c("mon_date", "cell_num"), all=FALSE)
 
-evi_clim <- merge(evi_clim_ts, tmp_ts, by="mon_date")
-dim(evi_clim_ts)
+# save working file 
+save(evi_clim, file="features/working-files/evi_and_climate_longformat_jepson_PPN+SMC_central+south.Rdata")
 
 
 
