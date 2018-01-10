@@ -15,6 +15,7 @@ library(car)
 library(lubridate)
 library(INLA)
 library(parallel)
+library(magrittr)
 
 
 #### Load data ####
@@ -47,13 +48,25 @@ mort_2015_2016 = raster("features/ADS-rasterized/Y2015_spALL.tif") + raster("fea
 # Load EVI matrix
 load("features/working-files/evi_data_matrix_jepson_PPN+SMC_central+south.Rdata")
 
-# Load annual precipitation and temperature summaries
-clim_data <- read.csv("features/working-files/climate_data_summaries_jepson_PPN+SMC_central+south.csv")
-
+# Load annual precipitation and temperature monthly data
+load("features/working-files/climate_data_matrix_jepson_PPN+SMC_central+south.Rdata")
+ppt_mat <- clim_mat[,grep("ppt", names(clim_mat))]
+tmp_mat <- clim_mat[,grep("tmp", names(clim_mat))]
 
 #### Merge weather and EVI data ####
 
-
+# format date info
+dim(evi_mat)
+dim(clim_data)
+evi_ts <- t(evi_mat)
+evi_dates <- strptime(rownames(evi_ts), format="%Y %m %d")
+ppt_ts <- t(ppt_mat)
+tmp_ts <- t(tmp_mat)
+clim_years <- as.vector(sapply(rownames(ppt_ts), substr, start=5, stop=8))
+clim_months <- as.vector(sapply(rownames(ppt_ts), substr, start=9, stop=10))
+clim_days <- rep("01", length(clim_years))
+clim_dates={}
+for (i in 1:length(clim_days)) clim_dates = c(clim_str, paste(clim_years[i], clim_months[i], clim_days[i], sep="-"))
 
 
 
