@@ -16,6 +16,8 @@ library(lubridate)
 library(INLA)
 library(parallel)
 library(magrittr)
+library(tidyr)
+library(dplyr)
 
 
 #### Load data ####
@@ -56,17 +58,27 @@ tmp_mat <- clim_mat[,grep("tmp", names(clim_mat))]
 #### Merge weather and EVI data ####
 
 # format date info
-dim(evi_mat)
-dim(clim_data)
-evi_ts <- t(evi_mat)
-evi_dates <- strptime(rownames(evi_ts), format="%Y %m %d")
-ppt_ts <- t(ppt_mat)
-tmp_ts <- t(tmp_mat)
-clim_years <- as.vector(sapply(rownames(ppt_ts), substr, start=5, stop=8))
-clim_months <- as.vector(sapply(rownames(ppt_ts), substr, start=9, stop=10))
-clim_days <- rep("01", length(clim_years))
-clim_dates={}
-for (i in 1:length(clim_days)) clim_dates = c(clim_str, paste(clim_years[i], clim_months[i], clim_days[i], sep="-"))
+evi_ts <- as.data.frame(t(evi_mat))
+evi_dates <- parse_date_time(rownames(evi_ts), orders="%Y %m %d")
+ppt_ts <- as.data.frame(t(ppt_mat))
+tmp_ts <- as.data.frame(t(tmp_mat))
+clim_dates <- as.vector(sapply(rownames(ppt_ts), substr, start=5, stop=10)) %>% parse_date_time(orders="Ym")
+
+evi_ts$date = evi_dates
+evi_ts$mon_date = format(evi_dates, "%Y-%m")
+ppt_ts$mon_date = format(clim_dates, "%Y-%m")
+tmp_ts$mon_date = format(clim_dates, "%Y-%m")
+
+# Convert data sets from wide to long format
+evi_long <- gather(evi_ts, cell_num, evi, num_range("", 1166529:3212104), factor_key = FALSE)
+ppt_long <- gather(ppt_ts, cell_num, ppt, num_range("", 1166529:3212104), factor_key = FALSE)
+tmp_long <- gather(tmp_ts, cell_num, tmp, num_range("", 1166529:3212104), factor_key = FALSE)
+
+evi_clim <- merge(ppt_long, evi_long, by=c("mon_date", "cell_num"), all=TRUE)
+
+evi_clim <- merge(evi_clim_ts, tmp_ts, by="mon_date")
+dim(evi_clim_ts)
+
 
 
 
