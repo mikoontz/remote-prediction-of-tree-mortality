@@ -83,19 +83,33 @@ save(evi_clim, file="features/working-files/evi_and_climate_longformat_jepson_PP
 # quick check of merge output
 length(unique(evi_clim$cell_num))
 dim(evi_mat) # all cells present 
+sum(table(evi_clim$cell_num)==388) # all dates for all cells present
 plot(evi_clim$date[evi_clim$cell_num==1166529], evi_clim$evi[evi_clim$cell_num==1166529])
 summary(lm(evi~ppt*tmp, data=evi_clim, subset = evi_clim$cell_num==1166529))
 summary(lm(evi~ppt*tmp, data=evi_clim))
 
 
 
-#### Summarize the EVI time series ####
 
-# how many "good" values are there per month? 
-obs_by_mon = rep(NA, 12)
-for (i in 0:11) obs_by_mon[i+1] = sum(!is.na(evi_mat[,dates$mon==i]))
-barplot(obs_by_mon, names.arg=as.character(1:12))
-# all values present June-Sept, good number in May. April and Oct missing ~40% of values
+
+
+#### Analyze the EVI time series ####
+
+# Create a seasonally cycling covariate
+evi_ydays <- sort(unique(yday(evi_dates)))
+evi_sinwave <- sin((evi_ydays-91)/365 * 2*pi)
+evi_sinwave <- data.frame(yday = evi_ydays, sinwave=evi_sinwave)
+
+# Merge it with the long-form data 
+evi_clim$yday <- yday(evi_clim$date)
+evi_clim <- merge(evi_clim, evi_sinwave, by="yday")
+
+# Add a year column for including trend in model
+evi_clim$trend <- year(evi_clim$date)-min(year(evi_clim$date))
+
+# Quick model check
+
+
 
 # In previous summary version, we masked out all EVI values from months other than May-Sept. This time, keep all the information in. 
 
