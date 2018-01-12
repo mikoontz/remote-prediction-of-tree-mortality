@@ -42,6 +42,9 @@ evi_template = raster("features/sierra-nevada-250m-evi-template.tif")
 # Get target pixels
 load("features/target_pixels.Rdata")
 
+# Get cell x-y information 
+cell_loc <- data.frame(x = clim_mat$x, y=clim_mat$y, cell_num=rownames(clim_mat))
+
 # load one mortality layer as a template
 # Note: should already be on same projection as EVI data
 mort_template = raster("features/ADS-rasterized/Y2015_sp122.tif")
@@ -74,26 +77,31 @@ evi_long <- gather(evi_ts, cell_num, evi, num_range("", 1166529:3212104), factor
 ppt_long <- gather(ppt_ts, cell_num, ppt, num_range("", 1166529:3212104), factor_key = FALSE)
 tmp_long <- gather(tmp_ts, cell_num, tmp, num_range("", 1166529:3212104), factor_key = FALSE)
 
+# Merge
 evi_clim <- merge(ppt_long, evi_long, by=c("mon_date", "cell_num"), all=FALSE)
 evi_clim <- merge(evi_clim, tmp_long, by=c("mon_date", "cell_num"), all=FALSE)
-
-# save working file 
-save(evi_clim, file="features/working-files/evi_and_climate_longformat_jepson_PPN+SMC_central+south.Rdata")
+evi_clim$cell_num <- as.integer(evi_clim$cell_num)
+evi_clim <- merge(evi_clim, cell_loc, by="cell_num", all=F)
 
 # quick check of merge output
 length(unique(evi_clim$cell_num))
 dim(evi_mat) # all cells present 
 sum(table(evi_clim$cell_num)==388) # all dates for all cells present
 plot(evi_clim$date[evi_clim$cell_num==1166529], evi_clim$evi[evi_clim$cell_num==1166529])
-summary(lm(evi~ppt*tmp, data=evi_clim, subset = evi_clim$cell_num==1166529))
-summary(lm(evi~ppt*tmp, data=evi_clim))
 
+# save working file 
+save(evi_clim, file="features/working-files/evi_and_climate_longformat_jepson_PPN+SMC_central+south.Rdata")
 
 
 
 
 
 #### Analyze the EVI time series ####
+
+# For exploratory purposes, look only at a subset of the data 
+subset_size = 20000
+cell_subset <- sample(unique(evi_clim$cell_num), size = subset_size)
+evi_clim <- filter(evi_clim, cell_num %in% cell_subset)
 
 # Create a seasonally cycling covariate
 evi_ydays <- sort(unique(yday(evi_dates)))
@@ -107,9 +115,29 @@ evi_clim <- merge(evi_clim, evi_sinwave, by="yday")
 # Add a year column for including trend in model
 evi_clim$trend <- year(evi_clim$date)-min(year(evi_clim$date))
 
+# Break precip and temp into cell-level long-term means and annual anomalies
+ppt_cellmean <- aggregate(evi_clim$ppt, by=list(evi_clim$cell_num, evi_clim$yday), FUN=mean)
+names(ppt_cellmean) <- c("cell_num", "yday", "ppt_mean")
+evi_clim <- merge(evi_clim, ppt_cellmean, by=c("cell_num", "yday"))
+evi_clim$ppt_anom <- evi_clim$ppt - evi_clim$ppt_mean
+evi_clim$ppt_anom <- scale(evi_clim$ppt_anom)
+
+tmp_cellmean <- aggregate(evi_clim$tmp, by=list(evi_clim$cell_num, evi_clim$yday), FUN=mean)
+names(tmp_cellmean) <- c("cell_num", "yday", "tmp_mean")
+evi_clim <- merge(evi_clim, tmp_cellmean, by=c("cell_num", "yday"))
+evi_clim$tmp_anom <- evi_clim$tmp - evi_clim$tmp_mean
+evi_clim$tmp_anom <- scale(evi_clim$tmp_anom)
+
 # Quick model check
-
-
+dat <- evi_clim
+cols_to_std <- c("trend", "sinwave" ,"tmp_mean","tmp_anom", "ppt_mean", "ppt_anom")
+for (i in 1:length(cols_to_std)) dat[,cols_to_std[i]] <- scale(dat[,cols_to_std[i]])
+m <- lmer(evi~trend + sinwave + tmp_mean + tmp_anom + ppt_mean + ppt_anom + (1 + sinwave|cell_num), data=dat)
+summary(m)
+hist(ranef(m)$cell_num$sinwave)
+cols <- scale(ranef(m)$cell_num$sinwave)*10 + 40
+palette(viridis(max(cols)))
+plot(y~x, data=dat[dat$yday==dat$yday[1],], pch=15, cex=0.3, col=cols)
 
 # In previous summary version, we masked out all EVI values from months other than May-Sept. This time, keep all the information in. 
 
