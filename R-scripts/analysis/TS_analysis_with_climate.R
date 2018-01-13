@@ -99,9 +99,9 @@ save(evi_clim, file="features/working-files/evi_and_climate_longformat_jepson_PP
 #### Analyze the EVI time series ####
 
 # For exploratory purposes, look only at a subset of the data 
-subset_size = 20000
-cell_subset <- sample(unique(evi_clim$cell_num), size = subset_size)
-evi_clim <- filter(evi_clim, cell_num %in% cell_subset)
+#subset_size = 20000
+#cell_subset <- sample(unique(evi_clim$cell_num), size = subset_size)
+#evi_clim <- filter(evi_clim, cell_num %in% cell_subset)
 
 # Create a seasonally cycling covariate
 evi_ydays <- sort(unique(yday(evi_dates)))
@@ -128,16 +128,25 @@ evi_clim <- merge(evi_clim, tmp_cellmean, by=c("cell_num", "yday"))
 evi_clim$tmp_anom <- evi_clim$tmp - evi_clim$tmp_mean
 evi_clim$tmp_anom <- scale(evi_clim$tmp_anom)
 
+# Save working file
+save(evi_clim, file="features/working-files/evi_and_climate_longformat_jepson_PPN+SMC_central+south.Rdata")
+
 # Quick model check
-dat <- evi_clim
+
+load("features/working-files/evi_and_climate_longformat_jepson_PPN+SMC_central+south.Rdata")
+
 cols_to_std <- c("trend", "sinwave" ,"tmp_mean","tmp_anom", "ppt_mean", "ppt_anom")
-for (i in 1:length(cols_to_std)) dat[,cols_to_std[i]] <- scale(dat[,cols_to_std[i]])
-m <- lmer(evi~trend + sinwave + tmp_mean + tmp_anom + ppt_mean + ppt_anom + (1 + sinwave|cell_num), data=dat)
+for (i in 1:length(cols_to_std)) evi_clim[,cols_to_std[i]] <- scale(evi_clim[,cols_to_std[i]])
+m <- lmer(evi~trend + sinwave + tmp_mean + tmp_anom + ppt_mean + ppt_anom + (1 + sinwave + ppt_anom + tmp_anom|cell_num), data=evi_clim)
 summary(m)
+
+sum(rownames(ranef(m)$cell_num)==cell_loc$cell_num) # values are in right order!
 hist(ranef(m)$cell_num$sinwave)
-cols <- scale(ranef(m)$cell_num$sinwave)*10 + 40
+cols <- (ranef(m)$cell_num$sinwave - min(ranef(m)$cell_num$sinwave))*100
 palette(viridis(max(cols)))
-plot(y~x, data=dat[dat$yday==dat$yday[1],], pch=15, cex=0.3, col=cols)
+cell_loc <- SpatialPointsDataFrame(cell_loc, coords = cell_loc[,c("x", "y")])
+projection(cell_loc) = projection(evi_template)
+plot(y~x, data=cell_loc, pch=15, cex=0.3, col=cols)
 
 # In previous summary version, we masked out all EVI values from months other than May-Sept. This time, keep all the information in. 
 
