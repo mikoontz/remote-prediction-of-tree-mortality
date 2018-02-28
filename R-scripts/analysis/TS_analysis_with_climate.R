@@ -135,9 +135,13 @@ save(evi_clim, file="features/working-files/evi_and_climate_longformat_jepson_PP
 
 load("features/working-files/evi_and_climate_longformat_jepson_PPN+SMC_central+south.Rdata")
 
+# subset years to 2000-2012
+evi_clim$year <- year(evi_clim$date)
+evi_clim <- evi_clim[evi_clim$year<2013,]
+
 cols_to_std <- c("trend", "sinwave" ,"tmp_mean","tmp_anom", "ppt_mean", "ppt_anom")
 for (i in 1:length(cols_to_std)) evi_clim[,cols_to_std[i]] <- scale(evi_clim[,cols_to_std[i]])
-m <- lmer(evi~trend + sinwave + tmp_mean + tmp_anom + ppt_mean + ppt_anom + (1 + sinwave + ppt_anom + tmp_anom|cell_num), data=evi_clim)
+m <- lmer(evi~trend + sinwave + tmp_mean + tmp_anom + ppt_mean + ppt_anom + (1 + sinwave  + trend|cell_num), data=evi_clim)
 summary(m)
 
 sum(rownames(ranef(m)$cell_num)==cell_loc$cell_num) # values are in right order!
